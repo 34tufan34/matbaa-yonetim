@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop, 'agent/**']
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  api:
+    name: API checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    env:
+      DATABASE_URL: postgresql://matbaa:matbaa@localhost:5432/matbaa
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - run: npm run prisma:generate
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm test
+
+  mobile:
+    name: Flutter checks and web preview
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Ensure web and Android platform files
+        run: flutter create . --platforms=web,android --project-name=matbaa_mobile
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      - run: flutter build web --release
+      - name: Upload web test bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: matbaa-web-preview
+          path: apps/mobile/build/web
+          if-no-files-found: error
