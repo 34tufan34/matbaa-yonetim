@@ -23,6 +23,8 @@ jobs:
           cache: true
       - name: Ensure Android platform files
         run: flutter create . --platforms=android --project-name=matbaa_mobile
+      - name: Remove generated sample test
+        run: rm -f test/widget_test.dart
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
