@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#111827" />
+  <meta name="theme-color" content="#0b1220" />
   <title>Matbaa Yönetim Sistemi</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -22,35 +22,92 @@
         <button class="nav-item" data-page="customers"><span>◉</span>Müşteriler</button>
         <button class="nav-item" data-page="orders"><span>▤</span>İş Emirleri</button>
         <button class="nav-item" data-page="production"><span>⚙</span>Üretim</button>
+        <button class="nav-item" data-page="inventory"><span>▦</span>Stok & Malzeme</button>
         <button class="nav-item" data-page="machines"><span>▣</span>Makineler</button>
       </nav>
-      <div class="sidebar-bottom"><div class="system-status"><i></i><span>Sistem aktif</span></div><small>HTML V1 · Yerel veri</small></div>
+      <div class="sidebar-bottom">
+        <div class="system-status"><i></i><span>Sistem aktif</span></div>
+        <small>HTML V2 · Yerel veri</small>
+      </div>
     </aside>
+
     <main class="main-area">
       <header class="topbar">
         <button class="icon-btn mobile-only" id="menuBtn" aria-label="Menüyü aç">☰</button>
         <div class="top-title"><span class="eyebrow">MATBAA YÖNETİM SİSTEMİ</span><h1 id="pageTitle">Komuta Merkezi</h1></div>
         <div class="top-actions"><div class="live-clock" id="liveClock"></div><button class="icon-btn" title="Bildirimler">🔔<b class="dot"></b></button></div>
       </header>
+
       <section class="page active" id="page-dashboard">
         <div class="section-head"><div><p class="muted">Fabrikanın bugünkü genel durumu</p></div><button class="primary-btn" data-open="orderModal">+ Yeni İş Emri</button></div>
         <div class="kpi-grid" id="kpiGrid"></div>
         <div class="dashboard-grid">
-          <article class="panel span-2"><div class="panel-head"><div><h2>Aktif İşler</h2><p>Termin ve üretim ilerlemesi</p></div><button class="text-btn" data-goto="orders">Tümünü gör →</button></div><div class="table-wrap"><table><thead><tr><th>İş Emri</th><th>Müşteri</th><th>Ürün</th><th>Aşama</th><th>Termin</th><th>İlerleme</th></tr></thead><tbody id="dashboardOrders"></tbody></table></div></article>
+          <article class="panel span-2"><div class="panel-head"><div><h2>Aktif İşler</h2><p>Satıra dokunarak iş kartını aç</p></div><button class="text-btn" data-goto="orders">Tümünü gör →</button></div><div class="table-wrap"><table><thead><tr><th>İş Emri</th><th>Müşteri</th><th>Ürün</th><th>Aşama</th><th>Termin</th><th>İlerleme</th></tr></thead><tbody id="dashboardOrders"></tbody></table></div></article>
           <article class="panel"><div class="panel-head"><div><h2>Kritik Uyarılar</h2><p>Öncelik gerektiren konular</p></div></div><div id="alertsList" class="alert-list"></div></article>
           <article class="panel span-2"><div class="panel-head"><div><h2>Makine Durumu</h2><p>Anlık üretim görünümü</p></div><button class="text-btn" data-goto="machines">Makine paneli →</button></div><div class="machine-strip" id="machineStrip"></div></article>
           <article class="panel target-panel"><div class="panel-head"><div><h2>Günlük Hedef</h2><p>Üretim gerçekleşme oranı</p></div></div><div class="target-number"><strong id="targetPercent">0%</strong><span>tamamlandı</span></div><div class="progress big"><i id="targetBar"></i></div><div class="target-meta"><span><b id="producedCount">0</b> üretildi</span><span><b id="targetCount">0</b> hedef</span></div></article>
         </div>
       </section>
-      <section class="page" id="page-customers"><div class="section-head"><div><h2>Müşteri Yönetimi</h2><p class="muted">Müşteri kartları ve iletişim bilgileri</p></div><button class="primary-btn" data-open="customerModal">+ Yeni Müşteri</button></div><article class="panel"><div class="toolbar"><input id="customerSearch" class="search-input" placeholder="Müşteri ara..." /></div><div class="table-wrap"><table><thead><tr><th>Firma</th><th>Yetkili</th><th>Telefon</th><th>E-posta</th><th>Aktif İş</th></tr></thead><tbody id="customersTable"></tbody></table></div></article></section>
-      <section class="page" id="page-orders"><div class="section-head"><div><h2>İş Emirleri</h2><p class="muted">Siparişten sevkiyata tüm işler</p></div><button class="primary-btn" data-open="orderModal">+ Yeni İş Emri</button></div><div class="filter-row"><button class="filter-chip active" data-order-filter="all">Tümü</button><button class="filter-chip" data-order-filter="active">Aktif</button><button class="filter-chip" data-order-filter="risk">Riskli</button><button class="filter-chip" data-order-filter="done">Tamamlandı</button></div><article class="panel"><div class="table-wrap"><table><thead><tr><th>İş Emri</th><th>Müşteri</th><th>Ürün</th><th>Miktar</th><th>Aşama</th><th>Termin</th><th>Durum</th><th>İlerleme</th></tr></thead><tbody id="ordersTable"></tbody></table></div></article></section>
-      <section class="page" id="page-production"><div class="section-head"><div><h2>Üretim Takibi</h2><p class="muted">İşlerin üretim hattındaki güncel aşaması</p></div></div><div class="production-board" id="productionBoard"></div></section>
-      <section class="page" id="page-machines"><div class="section-head"><div><h2>Makine Yönetimi</h2><p class="muted">Makine durumu, operatör ve bakım bilgileri</p></div><button class="primary-btn" data-open="machineModal">+ Makine Ekle</button></div><div class="machine-grid" id="machineGrid"></div></section>
+
+      <section class="page" id="page-customers">
+        <div class="section-head"><div><h2>Müşteri Yönetimi</h2><p class="muted">Müşteri kartları ve iletişim bilgileri</p></div><button class="primary-btn" data-open="customerModal">+ Yeni Müşteri</button></div>
+        <article class="panel"><div class="toolbar"><input id="customerSearch" class="search-input" placeholder="Müşteri ara..." /></div><div class="table-wrap"><table><thead><tr><th>Firma</th><th>Yetkili</th><th>Telefon</th><th>E-posta</th><th>Aktif İş</th></tr></thead><tbody id="customersTable"></tbody></table></div></article>
+      </section>
+
+      <section class="page" id="page-orders">
+        <div class="section-head"><div><h2>İş Emirleri</h2><p class="muted">Siparişten sevkiyata tüm işler · satıra dokunarak detay aç</p></div><button class="primary-btn" data-open="orderModal">+ Yeni İş Emri</button></div>
+        <div class="filter-row"><button class="filter-chip active" data-order-filter="all">Tümü</button><button class="filter-chip" data-order-filter="active">Aktif</button><button class="filter-chip" data-order-filter="risk">Riskli</button><button class="filter-chip" data-order-filter="done">Tamamlandı</button></div>
+        <article class="panel"><div class="table-wrap"><table><thead><tr><th>İş Emri</th><th>Müşteri</th><th>Ürün</th><th>Miktar</th><th>Aşama</th><th>Termin</th><th>Durum</th><th>İlerleme</th></tr></thead><tbody id="ordersTable"></tbody></table></div></article>
+      </section>
+
+      <section class="page" id="page-production">
+        <div class="section-head"><div><h2>Üretim Takibi</h2><p class="muted">İşlerin üretim hattındaki güncel aşaması</p></div></div>
+        <div class="production-board" id="productionBoard"></div>
+      </section>
+
+      <section class="page" id="page-inventory">
+        <div class="section-head"><div><h2>Stok & Malzeme</h2><p class="muted">Kağıt, karton, mürekkep, sarf ve kritik stok takibi</p></div><button class="primary-btn" data-open="materialModal">+ Malzeme Ekle</button></div>
+        <div class="inventory-kpis" id="inventoryKpis"></div>
+        <article class="panel"><div class="toolbar toolbar-split"><input id="materialSearch" class="search-input" placeholder="Kod veya malzeme ara..." /><div class="legend"><span><i class="legend-dot ok"></i>Normal</span><span><i class="legend-dot low"></i>Kritik</span></div></div><div class="table-wrap"><table><thead><tr><th>Kod</th><th>Malzeme</th><th>Tür</th><th>Stok</th><th>Min.</th><th>Birim</th><th>Tedarikçi</th><th>Durum</th></tr></thead><tbody id="materialsTable"></tbody></table></div></article>
+      </section>
+
+      <section class="page" id="page-machines">
+        <div class="section-head"><div><h2>Makine Yönetimi</h2><p class="muted">Makine durumu, operatör ve bakım bilgileri</p></div><button class="primary-btn" data-open="machineModal">+ Makine Ekle</button></div>
+        <div class="machine-grid" id="machineGrid"></div>
+      </section>
     </main>
   </div>
+
   <div class="modal" id="customerModal" aria-hidden="true"><div class="modal-card"><div class="modal-head"><div><h2>Yeni Müşteri</h2><p>Müşteri kartı oluştur</p></div><button class="close-btn" data-close>×</button></div><form id="customerForm" class="form-grid"><label class="full">Firma Adı<input name="company" required placeholder="Örn. ABC Ambalaj" /></label><label>Yetkili<input name="contact" placeholder="Ad Soyad" /></label><label>Telefon<input name="phone" placeholder="05xx xxx xx xx" /></label><label class="full">E-posta<input name="email" type="email" placeholder="firma@ornek.com" /></label><div class="form-actions full"><button type="button" class="secondary-btn" data-close>Vazgeç</button><button class="primary-btn">Kaydet</button></div></form></div></div>
-  <div class="modal" id="orderModal" aria-hidden="true"><div class="modal-card wide"><div class="modal-head"><div><h2>Yeni İş Emri</h2><p>Üretime girecek yeni işi oluştur</p></div><button class="close-btn" data-close>×</button></div><form id="orderForm" class="form-grid"><label>Müşteri<select name="customer" id="orderCustomer" required></select></label><label>Ürün<input name="product" required placeholder="Örn. 350 gr Bristol Kutu" /></label><label>Miktar<input name="quantity" type="number" min="1" required placeholder="50000" /></label><label>Termin<input name="deadline" type="date" required /></label><label>İlk Aşama<select name="stage"><option>Planlama</option><option>Malzeme</option><option>Baskı</option><option>Laminasyon</option><option>Kesim</option><option>Kalite</option><option>Paketleme</option><option>Sevkiyat</option></select></label><label>Öncelik<select name="priority"><option value="normal">Normal</option><option value="risk">Yüksek / Riskli</option></select></label><label class="full">Not<textarea name="note" rows="3" placeholder="Üretim notu, özel kalite talimatı vb."></textarea></label><div class="form-actions full"><button type="button" class="secondary-btn" data-close>Vazgeç</button><button class="primary-btn">İş Emri Oluştur</button></div></form></div></div>
+
+  <div class="modal" id="orderModal" aria-hidden="true"><div class="modal-card wide"><div class="modal-head"><div><h2>Yeni İş Emri</h2><p>Teknik bilgiler ve malzeme ihtiyacıyla üretim işi oluştur</p></div><button class="close-btn" data-close>×</button></div><form id="orderForm" class="form-grid">
+    <label>Müşteri<select name="customer" id="orderCustomer" required></select></label>
+    <label>Ürün<input name="product" required placeholder="Örn. Parfüm Kutusu" /></label>
+    <label>İş Türü<select name="jobType"><option>Karton Kutu</option><option>Etiket</option><option>Broşür</option><option>Katalog</option><option>Ambalaj</option><option>Diğer</option></select></label>
+    <label>Miktar<input name="quantity" type="number" min="1" required placeholder="50000" /></label>
+    <label>Ebat<input name="dimensions" placeholder="Örn. 210 × 297 mm" /></label>
+    <label>Renk<input name="colors" placeholder="Örn. 4+0 CMYK + Pantone" /></label>
+    <label>Termin<input name="deadline" type="date" required /></label>
+    <label>İlk Aşama<select name="stage"><option>Planlama</option><option>Malzeme</option><option>Baskı</option><option>Laminasyon</option><option>Kesim</option><option>Kalite</option><option>Paketleme</option><option>Sevkiyat</option></select></label>
+    <label>Öncelik<select name="priority"><option value="normal">Normal</option><option value="risk">Yüksek / Riskli</option></select></label>
+    <label>Ana Malzeme<select name="materialId" id="orderMaterial"><option value="">Malzeme seçilmedi</option></select></label>
+    <label>Gerekli Miktar<input name="materialQty" type="number" min="0" step="0.01" placeholder="Örn. 1250" /></label>
+    <label>Makine<select name="machineId" id="orderMachine"><option value="">Henüz atanmadı</option></select></label>
+    <label class="full">Üretim / Kalite Talimatı<textarea name="note" rows="3" placeholder="Özel renk, lak, numune onayı, kalite kriteri vb."></textarea></label>
+    <div class="form-actions full"><button type="button" class="secondary-btn" data-close>Vazgeç</button><button class="primary-btn">İş Emri Oluştur</button></div>
+  </form></div></div>
+
+  <div class="modal" id="materialModal" aria-hidden="true"><div class="modal-card"><div class="modal-head"><div><h2>Malzeme Ekle</h2><p>Merkezi stok kartı oluştur</p></div><button class="close-btn" data-close>×</button></div><form id="materialForm" class="form-grid">
+    <label>Kod<input name="code" required placeholder="KGT-001" /></label><label>Tür<select name="type"><option>Kağıt/Karton</option><option>Mürekkep</option><option>Lak</option><option>Yapıştırıcı</option><option>Film</option><option>Ambalaj</option><option>Sarf</option></select></label>
+    <label class="full">Malzeme Adı<input name="name" required placeholder="350 gr Bristol 70x100" /></label><label>Mevcut Stok<input name="stock" type="number" min="0" step="0.01" required /></label><label>Minimum Stok<input name="minStock" type="number" min="0" step="0.01" required /></label><label>Birim<select name="unit"><option>kg</option><option>adet</option><option>tabaka</option><option>litre</option><option>rulo</option></select></label><label>Tedarikçi<input name="supplier" placeholder="Firma adı" /></label>
+    <div class="form-actions full"><button type="button" class="secondary-btn" data-close>Vazgeç</button><button class="primary-btn">Malzeme Kaydet</button></div>
+  </form></div></div>
+
   <div class="modal" id="machineModal" aria-hidden="true"><div class="modal-card"><div class="modal-head"><div><h2>Makine Ekle</h2><p>Üretim hattına yeni makine tanımla</p></div><button class="close-btn" data-close>×</button></div><form id="machineForm" class="form-grid"><label class="full">Makine Adı<input name="name" required placeholder="Örn. Heidelberg XL 106" /></label><label>Bölüm<select name="department"><option>Baskı</option><option>Kesim</option><option>Laminasyon</option><option>Kırım</option><option>Paketleme</option></select></label><label>Durum<select name="status"><option value="active">Çalışıyor</option><option value="idle">Bekliyor</option><option value="maintenance">Bakımda</option><option value="fault">Arızalı</option></select></label><label class="full">Operatör<input name="operator" placeholder="Operatör adı" /></label><div class="form-actions full"><button type="button" class="secondary-btn" data-close>Vazgeç</button><button class="primary-btn">Kaydet</button></div></form></div></div>
-  <div class="toast" id="toast"></div><script src="app.js"></script>
+
+  <div class="modal" id="jobDetailModal" aria-hidden="true"><div class="modal-card detail-card"><div class="modal-head"><div><span class="eyebrow">İŞ EMRİ DETAYI</span><h2 id="detailTitle">-</h2><p id="detailSubtitle">-</p></div><button class="close-btn" data-close>×</button></div><div id="jobDetailBody"></div></div></div>
+
+  <div class="toast" id="toast"></div>
+  <script src="app.js"></script>
 </body>
 </html>
