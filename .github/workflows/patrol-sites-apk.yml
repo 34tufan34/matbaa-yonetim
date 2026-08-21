@@ -1,0 +1,58 @@
+name: Patrol Ambalaj Sites APK
+
+on:
+  push:
+    branches:
+      - "agent/sites-apk-*"
+    paths:
+      - "apps/patrol-baski-apk/**"
+      - ".github/workflows/patrol-sites-apk.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    name: Kurulabilir APK üret
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Kaynak kodu al
+        uses: actions/checkout@v4
+
+      - name: Java 17 kur
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Android SDK kur
+        uses: android-actions/setup-android@v3
+
+      - name: Android 35 paketlerini kur
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Gradle 8.9 kur
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Release APK üret
+        working-directory: apps/patrol-baski-apk
+        run: gradle --no-daemon :app:assembleRelease
+
+      - name: APK imzasını ve paketini doğrula
+        shell: bash
+        run: |
+          APK="apps/patrol-baski-apk/app/build/outputs/apk/release/app-release.apk"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -n 8
+          cp "$APK" "Patrol-Ambalaj-Baski-Takip-v1.0.0.apk"
+
+      - name: APK dosyasını yayımla
+        uses: actions/upload-artifact@v4
+        with:
+          name: Patrol-Ambalaj-Baski-Takip-v1.0.0
+          path: Patrol-Ambalaj-Baski-Takip-v1.0.0.apk
+          if-no-files-found: error
+          retention-days: 30
