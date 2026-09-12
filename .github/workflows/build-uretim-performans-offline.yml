@@ -3,7 +3,7 @@ name: Build Uretim Performans Offline APK
 on:
   push:
     branches:
-      - uretim-performans-offline-v1.2.0
+      - uretim-performans-offline-v1.3.0
     paths:
       - 'offline-apk/**'
       - '.github/workflows/build-uretim-performans-offline.yml'
@@ -45,10 +45,7 @@ jobs:
           grep -q 'v0.9.0' app/src/main/assets/index.html
 
       - name: Apply v0.9.3 stability and UI fixes
-        run: |
-          python builder/patch_v093.py
-          grep -q 'printReportBtn' app/src/main/assets/index.html
-          grep -q 'qualityFilterBar' app/src/main/assets/index.html
+        run: python builder/patch_v093.py
 
       - name: Make v1 report patch binding robust
         run: |
@@ -58,51 +55,38 @@ jobs:
           s=p.read_text(encoding='utf-8')
           marker='old="""  qsa(\'#periodTabs button\')'
           start=s.find(marker)
-          if start < 0:
-              raise SystemExit('v1 bind patch source block not found')
+          if start < 0: raise SystemExit('v1 bind patch source block not found')
           tail='html=html.replace(old,new,1)'
           end=s.find(tail,start)
-          if end < 0:
-              raise SystemExit('v1 bind patch tail not found')
+          if end < 0: raise SystemExit('v1 bind patch tail not found')
           end += len(tail)
           replacement="""anchor=\"qsa('#performanceTabs button').forEach(b=>b.onclick=()=>{ currentPerformanceDimension=b.dataset.dimension; runReport(); });\"\nif anchor not in html: raise SystemExit('performance bind anchor missing')\nhtml=html.replace(anchor,anchor+\" qsa('#reportDetailTabs button').forEach(b=>b.onclick=()=>{currentReportDetail=b.dataset.reportDetail;renderExtendedReport(currentReportDetail,currentReportRows);});\",1)"""
-          s=s[:start]+replacement+s[end:]
-          p.write_text(s,encoding='utf-8')
+          p.write_text(s[:start]+replacement+s[end:],encoding='utf-8')
           PY
 
       - name: Apply v1.0 report center
-        run: |
-          python builder/patch_v100.py
-          grep -q 'reportDetailTabs' app/src/main/assets/index.html
-          grep -q 'renderExtendedReport' app/src/main/assets/index.html
-          grep -q 'Vardiya Karşılaştırması' app/src/main/assets/index.html
-          grep -q 'İş Emri Analizi' app/src/main/assets/index.html
+        run: python builder/patch_v100.py
 
       - name: Apply full v1 manager PDF
-        run: |
-          python builder/patch_v100_pdf.py
-          grep -q 'printReportFullV100' app/src/main/assets/index.html
-          grep -q 'Fire Pareto' app/src/main/assets/index.html
-          grep -q 'Detaylı Üretim Kayıtları' app/src/main/assets/index.html
+        run: python builder/patch_v100_pdf.py
 
       - name: Apply v1.1 dashboard color and quality update
         run: |
           cat builder/patch_v110.part* > /tmp/patch_v110.py
           python /tmp/patch_v110.py
-          grep -q 'v1.1.0-stable-install' app/src/main/assets/index.html
-          grep -q 'dashboardPeriodTabs' app/src/main/assets/index.html
-          grep -q 'shiftGrid' app/src/main/assets/index.html
-          grep -q 'Kalıp Sayısından Renk Analizi' app/src/main/assets/index.html
-          grep -q 'drillWorkOrderStats' app/src/main/assets/index.html
 
       - name: Apply v1.2 instant reports and reset
+        run: python builder/patch_v120.py
+
+      - name: Apply v1.3 overtime, charts and color PDF
         run: |
-          python builder/patch_v120.py
-          grep -q 'v1.2.0-instant-report' app/src/main/assets/index.html
-          grep -q 'reportConsistencyHost' app/src/main/assets/index.html
-          grep -q 'Her Şeyi Gör' app/src/main/assets/index.html
-          grep -q 'factoryResetBtn' app/src/main/assets/index.html
-          grep -q 'reportReconciliation' app/src/main/assets/index.html
+          base64 -d builder/patch_v130.py.gz.b64 | gzip -d > /tmp/patch_v130.py
+          python /tmp/patch_v130.py
+          grep -q 'v1.3.0-overtime-production' app/src/main/assets/index.html
+          grep -q 'Mesai Üretim Analizi' app/src/main/assets/index.html
+          grep -q 'overtimeRuleForm' app/src/main/assets/index.html
+          grep -q 'printReportFullV130' app/src/main/assets/index.html
+          grep -q 'Renkli Yönetici Raporu' app/src/main/assets/index.html
 
       - name: Validate embedded JavaScript
         run: |
@@ -111,31 +95,34 @@ jobs:
           import re
           s=Path('app/src/main/assets/index.html').read_text(encoding='utf-8')
           scripts=re.findall(r'<script[^>]*>(.*?)</script>',s,re.S)
-          Path('/tmp/upm-v12.js').write_text('\n'.join(scripts),encoding='utf-8')
+          Path('/tmp/upm-v13.js').write_text('\n'.join(scripts),encoding='utf-8')
           PY
-          node --check /tmp/upm-v12.js
+          node --check /tmp/upm-v13.js
 
       - name: Set Android UI version
         run: |
-          sed -i 's/v0.9.2/v1.2.0/g; s/v0.9.3/v1.2.0/g; s/v1.0.0/v1.2.0/g; s/v1.1.0/v1.2.0/g; s/return "0.9.2"/return "1.2.0"/g; s/return "0.9.3"/return "1.2.0"/g; s/return "1.0.0"/return "1.2.0"/g; s/return "1.1.0"/return "1.2.0"/g' app/src/main/java/com/tufanprintops/uretimperformans/MainActivity.java
+          sed -i 's/v0.9.2/v1.3.0/g; s/v0.9.3/v1.3.0/g; s/v1.0.0/v1.3.0/g; s/v1.1.0/v1.3.0/g; s/v1.2.0/v1.3.0/g; s/return "0.9.2"/return "1.3.0"/g; s/return "0.9.3"/return "1.3.0"/g; s/return "1.0.0"/return "1.3.0"/g; s/return "1.1.0"/return "1.3.0"/g; s/return "1.2.0"/return "1.3.0"/g' app/src/main/java/com/tufanprintops/uretimperformans/MainActivity.java
 
-      - name: Build clean APK
-        run: gradle clean :app:assembleDebug --stacktrace
+      - name: Build unsigned production APK
+        run: gradle clean :app:assembleRelease --stacktrace
 
-      - name: Verify APK and stable package id
+      - name: Verify package and version
         run: |
-          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose app/build/outputs/apk/debug/app-debug.apk
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging app/build/outputs/apk/debug/app-debug.apk | tee /tmp/badging.txt | head -n 12
-          grep -q "package: name='com.tufanprintops.uretimperformans.stable'" /tmp/badging.txt
-          grep -q "versionCode='1200'" /tmp/badging.txt
+          APK=app/build/outputs/apk/release/app-release-unsigned.apk
+          test -s "$APK"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | tee /tmp/badging.txt | head -n 12
+          grep -q "package: name='com.tufanprintops.uretimperformans.production'" /tmp/badging.txt
+          grep -q "versionCode='1300'" /tmp/badging.txt
 
-      - name: Prepare intermediate APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk Uretim-Performans-Merkezi-v1.2.0-intermediate.apk
+      - name: Prepare production unsigned artifact
+        run: cp app/build/outputs/apk/release/app-release-unsigned.apk Uretim-Performans-Merkezi-v1.3.0-PRODUCTION-unsigned.apk
 
-      - name: Upload intermediate APK artifact
+      - name: Upload unsigned APK and final HTML
         uses: actions/upload-artifact@v4
         with:
-          name: Uretim-Performans-Merkezi-v1.2.0-intermediate
-          path: offline-apk/Uretim-Performans-Merkezi-v1.2.0-intermediate.apk
+          name: Uretim-Performans-Merkezi-v1.3.0-PRODUCTION-unsigned
+          path: |
+            offline-apk/Uretim-Performans-Merkezi-v1.3.0-PRODUCTION-unsigned.apk
+            offline-apk/app/src/main/assets/index.html
           if-no-files-found: error
           retention-days: 14
