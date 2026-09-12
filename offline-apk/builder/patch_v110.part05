@@ -2,14 +2,15 @@ new_events="$('dashDate').value=todayISO(); $('refreshDashboard').onclick=render
 if old_events not in html: raise SystemExit('dashboard bind anchor missing')
 html=html.replace(old_events,new_events,1)
 
-# Extend PDF with plate-to-color summary
-pdf_anchor="const machineStats=groupStats(rows,'machineId',state.machines), shiftStats=groupStats(rows,'shiftId',state.shifts), masterStats=groupStats(rows,'masterId',state.people);"
-if pdf_anchor not in html: raise SystemExit('print stats anchor missing')
+# Extend the current full manager PDF with plate-to-color analysis.
+pdf_anchor="const scrapReasons=knownReasonStats(rows,'scrapReasonId',state.scrapReasons,'scrapQty','Nedeni belirtilmemiş'), downReasons=downtimeStatsCombined(rows), jobs=workOrderStats(rows), weeks=groupByPeriod(rows,'week');"
+if pdf_anchor not in html: raise SystemExit('full pdf stats anchor missing')
 html=html.replace(pdf_anchor,pdf_anchor+"\n  const plateColors=plateColorStats(rows);",1)
-needle="${reasonTable('Fire Nedenleri',scraps,'adet')}<div class=\"section\"><h2>İş Emri Özeti</h2>"
-repl="${reasonTable('Fire Nedenleri',scraps,'adet')}<div class=\"section\"><h2>Kalıp Sayısından Renk Analizi</h2><table><thead><tr><th>Renk / Kalıp</th><th>İş Adedi</th><th>Net Baskı</th><th>Fire</th><th>Fire %</th><th>Duruş</th></tr></thead><tbody>${plateColors.map(x=>`<tr><td>${esc(x.name)}</td><td>${fmtNum(x.jobs)}</td><td>${fmtNum(x.good)}</td><td>${fmtNum(x.scrap)}</td><td>${fmtPct(x.rate)}</td><td>${fmtNum(x.down)} dk</td></tr>`).join('')}</tbody></table></div><div class=\"section\"><h2>İş Emri Özeti</h2>"
-if needle not in html: raise SystemExit('print body anchor missing')
-html=html.replace(needle,repl,1)
+
+mix_anchor="${simpleMix('Renk Sayısına Göre İş Karması',colors)}${simpleMix('Lak / UV Dağılımı',coatings)}${weekly}"
+plate_pdf="${simpleMix('Renk Sayısına Göre İş Karması',colors)}${simpleMix('Lak / UV Dağılımı',coatings)}<section><h2>Kalıp Sayısından Renk Analizi</h2><p class=\"note\">Renk alanı olmayan geçmiş işlerde kalıp adedi renk sayısı kabul edilir.</p><table><thead><tr><th>Renk / Kalıp</th><th>İş Adedi</th><th>Net Baskı</th><th>Fire</th><th>Fire %</th><th>Duruş</th></tr></thead><tbody>${plateColors.map(x=>`<tr><td>${esc(x.name)}</td><td>${fmtNum(x.jobs)}</td><td>${fmtNum(x.good)}</td><td>${fmtNum(x.scrap)}</td><td>${fmtPct(x.rate)}</td><td>${fmtNum(x.down)} dk</td></tr>`).join('')}</tbody></table></section>${weekly}"
+if mix_anchor not in html: raise SystemExit('full pdf body anchor missing')
+html=html.replace(mix_anchor,plate_pdf,1)
 
 # Build marker
 html=html.replace('</head>','<meta name="upm-build" content="v1.1.0-stable-install"></head>',1)
