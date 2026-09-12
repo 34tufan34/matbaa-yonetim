@@ -114,15 +114,22 @@ jobs:
           grep -q "package: name='com.tufanprintops.uretimperformans.production'" /tmp/badging.txt
           grep -q "versionCode='1300'" /tmp/badging.txt
 
-      - name: Prepare production unsigned artifact
-        run: cp app/build/outputs/apk/release/app-release-unsigned.apk Uretim-Performans-Merkezi-v1.3.0-PRODUCTION-unsigned.apk
+      - name: Prepare signing toolkit and unsigned artifact
+        run: |
+          cp app/build/outputs/apk/release/app-release-unsigned.apk Uretim-Performans-Merkezi-v1.3.0-PRODUCTION-unsigned.apk
+          mkdir -p sign-tools/lib
+          cp $ANDROID_HOME/build-tools/35.0.0/apksigner sign-tools/
+          cp $ANDROID_HOME/build-tools/35.0.0/zipalign sign-tools/
+          cp $ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar sign-tools/lib/
+          chmod +x sign-tools/apksigner sign-tools/zipalign
 
-      - name: Upload unsigned APK and final HTML
+      - name: Upload unsigned APK, final HTML and signing toolkit
         uses: actions/upload-artifact@v4
         with:
           name: Uretim-Performans-Merkezi-v1.3.0-PRODUCTION-unsigned
           path: |
             offline-apk/Uretim-Performans-Merkezi-v1.3.0-PRODUCTION-unsigned.apk
             offline-apk/app/src/main/assets/index.html
+            offline-apk/sign-tools/**
           if-no-files-found: error
           retention-days: 14
