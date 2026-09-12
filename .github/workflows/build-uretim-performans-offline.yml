@@ -89,16 +89,21 @@ jobs:
           python /tmp/patch_v140.py
           grep -q 'v1.4.0-focused-report' app/src/main/assets/index.html
 
-      - name: Apply v1.5 professional UI and print fixes
+      - name: Apply v1.5 professional UI and native print bridge
         run: |
           python builder/patch_v150.py
           python builder/patch_main_v150.py
-          grep -q 'v1.5.0-professional-ui' app/src/main/assets/index.html
           grep -q 'themeGrid' app/src/main/assets/index.html
           grep -q 'commandReportsBtn' app/src/main/assets/index.html
-          grep -q 'Profesyonel Ayarlar Merkezi' app/src/main/assets/index.html
           grep -q 'nativePrintStarted' app/src/main/assets/index.html
           grep -q 'printRequested = false' app/src/main/java/com/tufanprintops/uretimperformans/MainActivity.java
+
+      - name: Apply v1.5.1 PDF hotfix
+        run: |
+          python builder/patch_v151.py
+          grep -q 'v1.5.1-print-hotfix' app/src/main/assets/index.html
+          grep -q 'function plateColorStats' app/src/main/assets/index.html
+          grep -q 'printSmartReportV151' app/src/main/assets/index.html
 
       - name: Validate embedded JavaScript
         run: |
@@ -107,13 +112,13 @@ jobs:
           import re
           s=Path('app/src/main/assets/index.html').read_text(encoding='utf-8')
           scripts=re.findall(r'<script[^>]*>(.*?)</script>',s,re.S)
-          Path('/tmp/upm-v15.js').write_text('\n'.join(scripts),encoding='utf-8')
+          Path('/tmp/upm-v151.js').write_text('\n'.join(scripts),encoding='utf-8')
           PY2
-          node --check /tmp/upm-v15.js
+          node --check /tmp/upm-v151.js
 
       - name: Set Android UI version
         run: |
-          sed -i 's/v0.9.2/v1.5.0/g; s/v0.9.3/v1.5.0/g; s/v1.0.0/v1.5.0/g; s/v1.1.0/v1.5.0/g; s/v1.2.0/v1.5.0/g; s/v1.3.0/v1.5.0/g; s/v1.4.0/v1.5.0/g; s/return "0.9.2"/return "1.5.0"/g; s/return "0.9.3"/return "1.5.0"/g; s/return "1.0.0"/return "1.5.0"/g; s/return "1.1.0"/return "1.5.0"/g; s/return "1.2.0"/return "1.5.0"/g; s/return "1.3.0"/return "1.5.0"/g; s/return "1.4.0"/return "1.5.0"/g' app/src/main/java/com/tufanprintops/uretimperformans/MainActivity.java
+          sed -i 's/v0.9.2/v1.5.1/g; s/v0.9.3/v1.5.1/g; s/v1.0.0/v1.5.1/g; s/v1.1.0/v1.5.1/g; s/v1.2.0/v1.5.1/g; s/v1.3.0/v1.5.1/g; s/v1.4.0/v1.5.1/g; s/v1.5.0/v1.5.1/g; s/return "0.9.2"/return "1.5.1"/g; s/return "0.9.3"/return "1.5.1"/g; s/return "1.0.0"/return "1.5.1"/g; s/return "1.1.0"/return "1.5.1"/g; s/return "1.2.0"/return "1.5.1"/g; s/return "1.3.0"/return "1.5.1"/g; s/return "1.4.0"/return "1.5.1"/g; s/return "1.5.0"/return "1.5.1"/g' app/src/main/java/com/tufanprintops/uretimperformans/MainActivity.java
 
       - name: Build unsigned production APK
         run: gradle clean :app:assembleRelease --stacktrace
@@ -124,11 +129,11 @@ jobs:
           test -s "$APK"
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | tee /tmp/badging.txt | head -n 12
           grep -q "package: name='com.tufanprintops.uretimperformans.production'" /tmp/badging.txt
-          grep -q "versionCode='1500'" /tmp/badging.txt
+          grep -q "versionCode='1501'" /tmp/badging.txt
 
       - name: Prepare signing toolkit and unsigned artifact
         run: |
-          cp app/build/outputs/apk/release/app-release-unsigned.apk Uretim-Performans-Merkezi-v1.5.0-PRODUCTION-unsigned.apk
+          cp app/build/outputs/apk/release/app-release-unsigned.apk Uretim-Performans-Merkezi-v1.5.1-PRODUCTION-unsigned.apk
           mkdir -p sign-tools/lib
           cp $ANDROID_HOME/build-tools/35.0.0/apksigner sign-tools/
           cp $ANDROID_HOME/build-tools/35.0.0/zipalign sign-tools/
@@ -138,9 +143,9 @@ jobs:
       - name: Upload unsigned APK, final HTML and signing toolkit
         uses: actions/upload-artifact@v4
         with:
-          name: Uretim-Performans-Merkezi-v1.5.0-PRODUCTION-unsigned
+          name: Uretim-Performans-Merkezi-v1.5.1-PRODUCTION-unsigned
           path: |
-            offline-apk/Uretim-Performans-Merkezi-v1.5.0-PRODUCTION-unsigned.apk
+            offline-apk/Uretim-Performans-Merkezi-v1.5.1-PRODUCTION-unsigned.apk
             offline-apk/app/src/main/assets/index.html
             offline-apk/sign-tools/**
           if-no-files-found: error
