@@ -78,6 +78,13 @@ jobs:
           grep -q 'Vardiya Karşılaştırması' app/src/main/assets/index.html
           grep -q 'İş Emri Analizi' app/src/main/assets/index.html
 
+      - name: Apply full v1 manager PDF
+        run: |
+          python builder/patch_v100_pdf.py
+          grep -q 'printReportFullV100' app/src/main/assets/index.html
+          grep -q 'Fire Pareto' app/src/main/assets/index.html
+          grep -q 'Detaylı Üretim Kayıtları' app/src/main/assets/index.html
+
       - name: Validate embedded JavaScript
         run: |
           python - <<'PY'
