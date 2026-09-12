@@ -7,11 +7,11 @@ android {
     compileSdk 35
 
     defaultConfig {
-        applicationId 'com.tufanprintops.uretimperformans'
+        applicationId 'com.tufanprintops.uretimperformans.stable'
         minSdk 26
         targetSdk 35
-        versionCode 902
-        versionName '0.9.2'
+        versionCode 1100
+        versionName '1.1.0'
     }
 
     buildTypes {
