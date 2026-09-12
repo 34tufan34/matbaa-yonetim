@@ -1,0 +1,43 @@
+    return `<div class="shift-card ${shiftId===sh.id?'active':''}" data-shift-id="${sh.id}"><div class="shift-card-head"><strong>${esc(sh.name)}</strong><span>${sh.start||''}${sh.end?' – '+sh.end:''}</span></div><div class="shift-card-kpis"><div><span>Net</span><strong>${fmtNum(sg)}</strong></div><div><span>Fire</span><strong>${fmtPct(st?ss*100/st:0)}</strong></div><div><span>Duruş</span><strong>${fmtNum(sum(sr,'downtimeMin'))} dk</strong></div><div><span>İş</span><strong>${fmtNum(uniqueJobs(sr))}</strong></div></div></div>`;
+  }).join(''):'<div class="panel empty">Aktif vardiya tanımı yok.</div>';
+
+  const masters=new Map(state.people.map(p=>[p.id,p.name]));
+  $('machineGrid').innerHTML=state.machines.length?state.machines.map(m=>{
+    const mr=rows.filter(r=>r.machineId===m.id),mg=sum(mr,'goodQty'),ms=sum(mr,'scrapQty'),mt=mg+ms;
+    const assigned=(m.assignedMasterIds||[]).map(id=>masters.get(id)).filter(Boolean).join(', ')||'Usta atanmamış';
+    return `<div class="machine-card ${m.active===false?'offline':''}" data-machine-id="${m.id}"><div class="machine-title"><strong>${esc(m.name)}</strong><span>${m.active===false?'PASİF':'AKTİF'}</span></div><div class="machine-meta">${esc(assigned)}${m.code?` • ${esc(m.code)}`:''}</div><div class="machine-kpis"><div><span>NET</span><strong>${fmtNum(mg)}</strong></div><div><span>FİRE</span><strong>${fmtPct(mt?ms*100/mt:0)}</strong></div><div><span>DURUŞ</span><strong>${fmtNum(sum(mr,'downtimeMin'))} dk</strong></div></div></div>`;
+  }).join(''):`<div class="panel empty">Henüz makine tanımı yok. Önce <strong>Merkez Tanımlar → Makineler</strong> bölümünden makine ekle.</div>`;
+  qsa('.machine-card').forEach(c=>c.addEventListener('click',()=>openRecordModal({machineId:c.dataset.machineId,shiftId:$('dashShift').value,date:$('dashDate').value})));
+  qsa('.shift-card').forEach(c=>c.addEventListener('click',()=>{const id=c.dataset.shiftId;$('dashShift').value=$('dashShift').value===id?'':id;renderDashboard();}));
+}
+'''
+html=html[:start]+new_dashboard+html[end:]
+
+# Dashboard select placeholder
+html=html.replace("setSelectOptions('dashShift',optionList(state.shifts,'Vardiya seç'));", "setSelectOptions('dashShift',optionList(state.shifts,'Tüm vardiyalar'));",1)
+
+# Quality badge markup
+old_badge='''<button type="button" class="quality-badge ${q.severity}" data-quality-record="${r.id}">${qualityLabel(q.severity)}${q.issues.length?` · ${q.issues.length}`:''}</button>'''
+new_badge='''<button type="button" class="quality-badge ${q.severity}" data-quality-record="${r.id}" title="${esc(q.issues.map(x=>x.message).join(' | ')||'Kalite kontrolü normal')}"><span class="quality-mark">${q.severity==='critical'?'!':q.severity==='warn'?'?':'✓'}</span><span class="quality-name">${qualityLabel(q.severity)}</span>${q.issues.length?`<span class="quality-count">${q.issues.length}</span>`:''}</button>'''
+if old_badge not in html: raise SystemExit('quality badge markup missing')
+html=html.replace(old_badge,new_badge,1)
+
+# Color inference helper and compact report fallback
+color_anchor='function renderColorReport(rows){'
+ci=html.find(color_anchor)
+if ci<0: raise SystemExit('renderColorReport missing')
+html=html[:ci]+'''function inferredColorCount(r){const explicit=Number(r?.colors||0);if(explicit>0)return explicit;const plates=Number(r?.plateQty||0);return plates>0?plates:0;}\n'''+html[ci:]
+html=html.replace("const k=(r.colors===null||r.colors===undefined||Number(r.colors)<=0)?'unknown':String(Number(r.colors));", "const inferred=inferredColorCount(r); const k=inferred>0?String(inferred):'unknown';",1)
+
+# Rich workOrderStats: infer colors from plate count if explicit colors are missing
+html=html.replace("colors:[...new Set(rr.map(r=>r.colors).filter(x=>x!=null&&Number(x)>0))]", "colors:[...new Set(rr.map(r=>inferredColorCount(r)).filter(x=>Number(x)>0))]",1)
+
+# Plate-based work order color analysis + upgraded mix report
+mix_start=html.find('function mixExtended(rows){')
+mix_end=html.find('\nfunction trendTable',mix_start)
+if mix_start<0 or mix_end<0: raise SystemExit('mixExtended block missing')
+new_mix=r'''function plateColorStats(rows){
+  const jobs=new Map();
+  rows.forEach((r,idx)=>{const wo=String(r.workOrder||'').trim();const key=wo?`wo:${wo}`:`row:${r.id||idx}`;if(!jobs.has(key))jobs.set(key,{key,name:wo||'(İş emri yok)',rows:[],plateColor:0});const j=jobs.get(key);j.rows.push(r);const p=Number(r.plateQty||0);const c=Number(r.colors||0);j.plateColor=Math.max(j.plateColor,p>0?p:(c>0?c:0));});
+  const groups=new Map();
+  [...jobs.values()].forEach(j=>{const k=j.plateColor>0?String(j.plateColor):'unknown';if(!groups.has(k))groups.set(k,[]);groups.get(k).push(j);});
