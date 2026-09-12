@@ -108,7 +108,7 @@ jobs:
           python builder/patch_main_v160.py
           grep -q 'recordMachineTabs' app/src/main/assets/index.html
           grep -q 'openRecordWorkOrderHistory' app/src/main/assets/index.html
-          grep -q 'writeWebViewToPdf' app/src/main/java/com/tufanprintops/uretimperformans/MainActivity.java
+          grep -q 'createPdfFromWebView' app/src/main/java/com/tufanprintops/uretimperformans/MainActivity.java
           grep -q 'REQ_SAVE_PDF = 2203' app/src/main/java/com/tufanprintops/uretimperformans/MainActivity.java
 
       - name: Validate embedded JavaScript
