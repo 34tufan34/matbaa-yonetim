@@ -3,7 +3,7 @@ name: Build Uretim Performans Offline APK
 on:
   push:
     branches:
-      - uretim-performans-offline-v1.0.0
+      - uretim-performans-offline-v1.1.0
     paths:
       - 'offline-apk/**'
       - '.github/workflows/build-uretim-performans-offline.yml'
@@ -85,6 +85,16 @@ jobs:
           grep -q 'Fire Pareto' app/src/main/assets/index.html
           grep -q 'Detaylı Üretim Kayıtları' app/src/main/assets/index.html
 
+      - name: Apply v1.1 dashboard color and quality update
+        run: |
+          cat builder/patch_v110.part* > /tmp/patch_v110.py
+          python /tmp/patch_v110.py
+          grep -q 'v1.1.0-stable-install' app/src/main/assets/index.html
+          grep -q 'dashboardPeriodTabs' app/src/main/assets/index.html
+          grep -q 'shiftGrid' app/src/main/assets/index.html
+          grep -q 'Kalıp Sayısından Renk Analizi' app/src/main/assets/index.html
+          grep -q 'drillWorkOrderStats' app/src/main/assets/index.html
+
       - name: Validate embedded JavaScript
         run: |
           python - <<'PY'
@@ -92,31 +102,31 @@ jobs:
           import re
           s=Path('app/src/main/assets/index.html').read_text(encoding='utf-8')
           scripts=re.findall(r'<script[^>]*>(.*?)</script>',s,re.S)
-          Path('/tmp/upm-v1.js').write_text('\n'.join(scripts),encoding='utf-8')
+          Path('/tmp/upm-v11.js').write_text('\n'.join(scripts),encoding='utf-8')
           PY
-          node --check /tmp/upm-v1.js
+          node --check /tmp/upm-v11.js
 
-      - name: Set v1.0 Android version
+      - name: Set Android UI version
         run: |
-          sed -i "s/versionCode 902/versionCode 1000/; s/versionCode 903/versionCode 1000/" app/build.gradle
-          sed -i "s/versionName '0.9.2'/versionName '1.0.0'/; s/versionName '0.9.3'/versionName '1.0.0'/" app/build.gradle
-          sed -i 's/v0.9.2/v1.0.0/g; s/v0.9.3/v1.0.0/g; s/return "0.9.2"/return "1.0.0"/g; s/return "0.9.3"/return "1.0.0"/g' app/src/main/java/com/tufanprintops/uretimperformans/MainActivity.java
+          sed -i 's/v0.9.2/v1.1.0/g; s/v0.9.3/v1.1.0/g; s/v1.0.0/v1.1.0/g; s/return "0.9.2"/return "1.1.0"/g; s/return "0.9.3"/return "1.1.0"/g; s/return "1.0.0"/return "1.1.0"/g' app/src/main/java/com/tufanprintops/uretimperformans/MainActivity.java
 
-      - name: Build clean debug APK
+      - name: Build clean APK
         run: gradle clean :app:assembleDebug --stacktrace
 
-      - name: Verify APK signature and package
+      - name: Verify APK and stable package id
         run: |
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose app/build/outputs/apk/debug/app-debug.apk
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging app/build/outputs/apk/debug/app-debug.apk | head -n 8
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging app/build/outputs/apk/debug/app-debug.apk | tee /tmp/badging.txt | head -n 12
+          grep -q "package: name='com.tufanprintops.uretimperformans.stable'" /tmp/badging.txt
+          grep -q "versionCode='1100'" /tmp/badging.txt
 
-      - name: Prepare APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk Uretim-Performans-Merkezi-v1.0.0.apk
+      - name: Prepare intermediate APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk Uretim-Performans-Merkezi-v1.1.0-intermediate.apk
 
-      - name: Upload APK artifact
+      - name: Upload intermediate APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Uretim-Performans-Merkezi-v1.0.0
-          path: offline-apk/Uretim-Performans-Merkezi-v1.0.0.apk
+          name: Uretim-Performans-Merkezi-v1.1.0-intermediate
+          path: offline-apk/Uretim-Performans-Merkezi-v1.1.0-intermediate.apk
           if-no-files-found: error
           retention-days: 14
