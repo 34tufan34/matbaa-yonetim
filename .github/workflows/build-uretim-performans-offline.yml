@@ -3,7 +3,7 @@ name: Build Uretim Performans Offline APK
 on:
   push:
     branches:
-      - uretim-performans-offline-v0.9.3
+      - uretim-performans-offline-v1.0.0
     paths:
       - 'offline-apk/**'
       - '.github/workflows/build-uretim-performans-offline.yml'
@@ -44,22 +44,39 @@ jobs:
           test -s app/src/main/assets/index.html
           grep -q 'v0.9.0' app/src/main/assets/index.html
 
-      - name: Apply v0.9.3 UI fixes
+      - name: Apply v0.9.3 stability and UI fixes
         run: |
           python builder/patch_v093.py
-          grep -q 'v0.9.3-source-build' app/src/main/assets/index.html
           grep -q 'printReportBtn' app/src/main/assets/index.html
           grep -q 'qualityFilterBar' app/src/main/assets/index.html
 
-      - name: Set v0.9.3 Android version
+      - name: Apply v1.0 report center
         run: |
-          sed -i "s/versionCode 902/versionCode 903/" app/build.gradle
-          sed -i "s/versionName '0.9.2'/versionName '0.9.3'/" app/build.gradle
-          sed -i 's/v0.9.2/v0.9.3/g; s/return "0.9.2"/return "0.9.3"/g' app/src/main/java/com/tufanprintops/uretimperformans/MainActivity.java
+          python builder/patch_v100.py
+          grep -q 'reportDetailTabs' app/src/main/assets/index.html
+          grep -q 'renderExtendedReport' app/src/main/assets/index.html
+          grep -q 'Vardiya Karşılaştırması' app/src/main/assets/index.html
+          grep -q 'İş Emri Analizi' app/src/main/assets/index.html
+
+      - name: Validate embedded JavaScript
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('app/src/main/assets/index.html').read_text(encoding='utf-8')
+          scripts=re.findall(r'<script[^>]*>(.*?)</script>',s,re.S)
+          Path('/tmp/upm-v1.js').write_text('\n'.join(scripts),encoding='utf-8')
+          PY
+          node --check /tmp/upm-v1.js
+
+      - name: Set v1.0 Android version
+        run: |
+          sed -i "s/versionCode 902/versionCode 1000/; s/versionCode 903/versionCode 1000/" app/build.gradle
+          sed -i "s/versionName '0.9.2'/versionName '1.0.0'/; s/versionName '0.9.3'/versionName '1.0.0'/" app/build.gradle
+          sed -i 's/v0.9.2/v1.0.0/g; s/v0.9.3/v1.0.0/g; s/return "0.9.2"/return "1.0.0"/g; s/return "0.9.3"/return "1.0.0"/g' app/src/main/java/com/tufanprintops/uretimperformans/MainActivity.java
 
       - name: Build clean debug APK
-        run: |
-          gradle clean :app:assembleDebug --stacktrace
+        run: gradle clean :app:assembleDebug --stacktrace
 
       - name: Verify APK signature and package
         run: |
@@ -67,12 +84,12 @@ jobs:
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging app/build/outputs/apk/debug/app-debug.apk | head -n 8
 
       - name: Prepare APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk Uretim-Performans-Merkezi-v0.9.3.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk Uretim-Performans-Merkezi-v1.0.0.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Uretim-Performans-Merkezi-v0.9.3-clean
-          path: offline-apk/Uretim-Performans-Merkezi-v0.9.3.apk
+          name: Uretim-Performans-Merkezi-v1.0.0
+          path: offline-apk/Uretim-Performans-Merkezi-v1.0.0.apk
           if-no-files-found: error
           retention-days: 14
