@@ -16,6 +16,10 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -99,18 +103,99 @@ public class MainActivity extends Activity {
             String line;
             while ((line = br.readLine()) != null) sb.append(line).append('\n');
             br.close();
-            webView.loadDataWithBaseURL("https://app.local/", sb.toString(), "text/html", "UTF-8", null);
+            String html = patchHtmlForAndroid(sb.toString());
+            webView.loadDataWithBaseURL("https://app.local/", html, "text/html", "UTF-8", null);
         } catch (Exception e) {
             webView.loadData("<h2>Uygulama dosyası açılamadı.</h2><pre>" + e.getMessage() + "</pre>", "text/html", "UTF-8");
         }
     }
 
+    private String patchHtmlForAndroid(String html) {
+        html = html.replace("v0.9.0", "v0.9.1");
+        html = html.replace(
+                "const raw=localStorage.getItem(lsKey(name));",
+                "const raw=isAndroidNative()?AndroidApp.readStore(name):localStorage.getItem(lsKey(name));"
+        );
+        html = html.replace(
+                "function lsWrite(name,rows){ localStorage.setItem(lsKey(name),JSON.stringify(rows)); }",
+                "function lsWrite(name,rows){ if(isAndroidNative()){ if(AndroidApp.writeStore(name,JSON.stringify(rows))!==true) throw new Error('Android yerel veri yazılamadı: '+name); return; } localStorage.setItem(lsKey(name),JSON.stringify(rows)); }"
+        );
+        html = html.replace(
+                "return new Promise((resolve)=>{\n    if(!('indexedDB' in window))",
+                "return new Promise((resolve)=>{\n    if(isAndroidNative()){ storageMode='localStorage'; db=null; return resolve(null); }\n    if(!('indexedDB' in window))"
+        );
+        html = html.replace(
+                "else if(storageMode==='localStorage') el.innerHTML='<span style=\"background:#f0b84b\"></span> Uyumlu offline depolama';",
+                "else if(storageMode==='localStorage') el.innerHTML=isAndroidNative()?'<span></span> Yerel veri hazır • APK':'<span style=\"background:#f0b84b\"></span> Uyumlu offline depolama';"
+        );
+        html = html.replace(
+                "const s=ANDROID_EMBEDDED_SEED;\n  for(const row of s.people) await dbPut('people',row);",
+                "const s=ANDROID_EMBEDDED_SEED;\n  if(isAndroidNative()){\n    AndroidApp.writeStore('people',JSON.stringify(s.people||[]));\n    AndroidApp.writeStore('machines',JSON.stringify(s.machines||[]));\n    AndroidApp.writeStore('shifts',JSON.stringify(s.shifts||[]));\n    AndroidApp.writeStore('scrapReasons',JSON.stringify(s.scrapReasons||[]));\n    AndroidApp.writeStore('downtimeReasons',JSON.stringify(s.downtimeReasons||[]));\n    AndroidApp.writeStore('productionRecords',JSON.stringify(s.productionRecords||[]));\n    AndroidApp.writeStore('settings',JSON.stringify([state.settings&&state.settings.id?state.settings:defaultSettings()]));\n    AndroidApp.writeStore('meta',JSON.stringify([{id:'meta',lastBackupAt:null,recordsAtBackup:0,seedVersion:s.version,seedAppliedAt:new Date().toISOString()}]));\n    await loadState(); return true;\n  }\n  for(const row of s.people) await dbPut('people',row);"
+        );
+        html = html.replace(
+                "alert('Yerel depolama başlatılamadı. Uygulamayı kapatıp yeniden açın. Sorun sürerse yedek dosyanızı koruyun.');",
+                "alert('Yerel depolama başlatılamadı.\\n\\nTeknik ayrıntı: '+((err&&err.message)?err.message:String(err||'Bilinmeyen hata')));"
+        );
+        return html;
+    }
+
+    private File storageDir() throws Exception {
+        File dir = new File(getFilesDir(), "offline-store");
+        if (!dir.exists() && !dir.mkdirs()) throw new Exception("Yerel veri klasörü oluşturulamadı");
+        return dir;
+    }
+
+    private File storeFile(String name) throws Exception {
+        if (name == null || !name.matches("[A-Za-z0-9_-]{1,64}")) throw new Exception("Geçersiz veri alanı");
+        return new File(storageDir(), name + ".json");
+    }
+
+    private synchronized String readStoreFile(String name) {
+        try {
+            File file = storeFile(name);
+            if (!file.exists()) return "[]";
+            try (FileInputStream in = new FileInputStream(file); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+                byte[] buf = new byte[8192];
+                int n;
+                while ((n = in.read(buf)) >= 0) out.write(buf, 0, n);
+                String text = out.toString(StandardCharsets.UTF_8.name()).trim();
+                return text.isEmpty() ? "[]" : text;
+            }
+        } catch (Exception e) {
+            return "[]";
+        }
+    }
+
+    private synchronized boolean writeStoreFile(String name, String json) {
+        try {
+            File target = storeFile(name);
+            File tmp = new File(target.getParentFile(), target.getName() + ".tmp");
+            byte[] bytes = (json == null || json.trim().isEmpty() ? "[]" : json).getBytes(StandardCharsets.UTF_8);
+            try (FileOutputStream out = new FileOutputStream(tmp, false)) {
+                out.write(bytes);
+                out.flush();
+                out.getFD().sync();
+            }
+            if (target.exists() && !target.delete()) return false;
+            if (!tmp.renameTo(target)) return false;
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     public class AndroidBridge {
         @JavascriptInterface
-        public String getVersion() { return "0.9.0"; }
+        public String getVersion() { return "0.9.1"; }
 
         @JavascriptInterface
         public boolean isOfflineApp() { return true; }
+
+        @JavascriptInterface
+        public String readStore(String name) { return readStoreFile(name); }
+
+        @JavascriptInterface
+        public boolean writeStore(String name, String json) { return writeStoreFile(name, json); }
 
         @JavascriptInterface
         public void saveTextFile(String fileName, String mimeType, String content) {
