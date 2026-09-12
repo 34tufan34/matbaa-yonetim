@@ -1,0 +1,37 @@
+  return [...groups.entries()].map(([id,items])=>{const rr=items.flatMap(x=>x.rows),s=statsOf(rr);return {id,name:id==='unknown'?'Belirtilmemiş':`${id} renk`,jobs:items.length,good:s.good,scrap:s.scrap,rate:s.rate,down:s.down,plates:s.plates,rows:rr};}).sort((a,b)=>a.id==='unknown'?1:b.id==='unknown'?-1:Number(a.id)-Number(b.id));
+}
+function plateColorTable(stats){
+  if(!stats.length)return '<div class="xreport-empty">Kalıp bilgisi olan kayıt yok.</div>';
+  return `<div class="xreport-table-wrap"><table class="xreport-table plate-color-table"><thead><tr><th>Renk / Kalıp</th><th>İş Adedi</th><th>Net Baskı</th><th>Fire</th><th>Fire %</th><th>Duruş</th></tr></thead><tbody>${stats.map(x=>`<tr><td><strong>${esc(x.name)}</strong>${x.id!=='unknown'?'<span class="plate-color-source">kalıptan</span>':''}</td><td>${fmtNum(x.jobs)}</td><td><strong>${fmtNum(x.good)}</strong></td><td>${fmtNum(x.scrap)}</td><td>${fmtPct(x.rate)}</td><td>${fmtNum(x.down)} dk</td></tr>`).join('')}</tbody></table></div>`;
+}
+function mixExtended(rows){
+  const colors=new Map();rows.forEach(r=>{const c=inferredColorCount(r),k=c>0?String(c):'unknown';if(!colors.has(k))colors.set(k,[]);colors.get(k).push(r);});
+  const colorStats=[...colors.entries()].map(([id,rr])=>{const s=statsOf(rr);return {id,name:id==='unknown'?'Belirtilmemiş':id+' renk',rows:rr,...s}}).sort((a,b)=>a.id==='unknown'?1:b.id==='unknown'?-1:Number(a.id)-Number(b.id));
+  const plateStats=plateColorStats(rows);
+  const coat=[['uv','UV Laklı',rows.filter(r=>r.uvLak===true)],['lak','Laklı',rows.filter(r=>r.lak===true)],['none','Lak / UV Yok',rows.filter(r=>r.lak===false&&r.uvLak===false)],['unknown','Belirtilmemiş',rows.filter(r=>r.lak==null||r.uvLak==null)]].map(([id,name,rr])=>{const s=statsOf(rr);return {id,name,rows:rr,...s}});
+  const table=(data,scope)=>`<div class="xreport-table-wrap"><table class="xreport-table"><thead><tr><th>Tip</th><th>İş</th><th>Net</th><th>Fire</th><th>Fire %</th><th>Duruş</th><th>Kalıp</th></tr></thead><tbody>${data.map(x=>`<tr data-xscope="${scope}" data-xvalue="${esc(x.id)}" data-xlabel="${esc(x.name)}"><td><strong>${esc(x.name)}</strong></td><td>${fmtNum(x.jobs)}</td><td>${fmtNum(x.good)}</td><td>${fmtNum(x.scrap)}</td><td>${fmtPct(x.rate)}</td><td>${fmtNum(x.down)} dk</td><td>${fmtNum(x.plates)}</td></tr>`).join('')}</tbody></table></div>`;
+  return `<div class="xreport-section-title"><div><h2>Renk / Kalıp / Lak Analizi</h2><p>Eski kayıtlarda renk bilgisi yoksa kalıp adedi renk sayısı olarak kullanılır.</p></div></div><div class="xreport-two"><div class="xreport-panel"><h3>Renk Sayısına Göre</h3><p>Renk alanı varsa onu, yoksa kalıp adedini kullanır.</p>${table(colorStats,'color')}</div><div class="xreport-panel"><h3>Lak / UV Özelliğine Göre</h3><p>Laklı, UV laklı ve laksız işlerin karşılaştırması.</p>${table(coat,'coating')}</div></div><div class="xreport-panel" style="margin-top:14px"><h3>Kalıp Sayısından Renk Analizi</h3><p>İş emri bazında kalıp sayısını renk sayısı kabul eder. Örnek: 2 kalıplı 6 işte toplam 6.000 tabaka gibi.</p>${plateColorTable(plateStats)}</div>`;
+}
+'''
+html=html[:mix_start]+new_mix+html[mix_end:]
+
+# Color drilldown should also include inferred colors
+html=html.replace("if(scope==='color') return value==='unknown'?rows.filter(r=>r.colors==null||Number(r.colors)<=0):rows.filter(r=>Number(r.colors)===Number(value));", "if(scope==='color') return value==='unknown'?rows.filter(r=>inferredColorCount(r)<=0):rows.filter(r=>inferredColorCount(r)===Number(value));",1)
+
+# Fix duplicate workOrderStats declaration that was shadowing the richer v1 report implementation.
+drill_marker='function drillBack(){ if(drillStack.length<=1) return; drillStack.pop(); renderDrillContext(drillStack[drillStack.length-1]); }'
+pos=html.find(drill_marker)
+if pos<0: raise SystemExit('drill marker missing')
+second=html.find('function workOrderStats(rows){',pos)
+if second<0: raise SystemExit('drill workOrderStats missing')
+html=html[:second]+html[second:].replace('function workOrderStats(rows){','function drillWorkOrderStats(rows){',1)
+# only renderDrillContext after this point should use drillWorkOrderStats
+render_drill=html.find('function renderDrillContext',second)
+if render_drill<0: raise SystemExit('renderDrillContext missing')
+next_fn=html.find('\nfunction drillCsv',render_drill)
+block=html[render_drill:next_fn]
+block=block.replace('const rows=ctx.rows, st=statsOf(rows), wo=workOrderStats(rows),', 'const rows=ctx.rows, st=statsOf(rows), wo=drillWorkOrderStats(rows),',1)
+html=html[:render_drill]+block+html[next_fn:]
+
+# Events for dashboard periods + date
+old_events="$('dashDate').value=todayISO(); $('refreshDashboard').onclick=renderDashboard; $('dashShift').onchange=renderDashboard; $('quickBackupBtn').onclick=()=>createBackup();"
