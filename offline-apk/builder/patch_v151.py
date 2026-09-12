@@ -26,33 +26,17 @@ function smartPrintError(err){
   const msg=(err&&err.message)?err.message:String(err||'Bilinmeyen hata');
   alert('PDF / Yazdır işlemi başlatılamadı.\n\nTeknik ayrıntı: '+msg);
 }
-function nativePrintStarted(){toast('Android yazdırma ekranı açılıyor...');}
-function nativePrintFailed(message){alert('Android yazdırma ekranı açılamadı.\n\nTeknik ayrıntı: '+String(message||'Bilinmeyen hata'));}
+function printSmartReportV151(){
+  try{return printSmartReportV140();}
+  catch(err){smartPrintError(err);}
+}
 '''
 html=html.replace(marker,helper+'\n'+marker,1)
 
-start=html.find('function printSmartReportV140(){')
-end=html.find('\n\nfunction printReportFullV130()',start)
-if start<0 or end<0:
-    raise SystemExit('smart print function block missing')
-old=html[start:end]
-body=old[len('function printSmartReportV140(){'):]
-if body.endswith('}'):
-    body=body[:-1]
-old_tail="""  try{
-    if(isAndroidNative()&&window.AndroidApp){toast('Yazdırma penceresi hazırlanıyor...');window.AndroidApp.printHtml('Uretim Performans Raporu',doc);closePdfReportModal();return;}
-    const w=window.open('','_blank');if(!w){toast('Yazdırma penceresi engellendi.');return}w.document.write(doc.replace('</body>','<script>window.onload=()=>setTimeout(()=>window.print(),250)<\\/script></body>'));w.document.close();closePdfReportModal();
-  }catch(err){console.error(err);alert('PDF / Yazdır işlemi başlatılamadı.\\n\\nTeknik ayrıntı: '+((err&&err.message)?err.message:String(err)));}
-"""
-new_tail="""  if(isAndroidNative()&&window.AndroidApp&&typeof window.AndroidApp.printHtml==='function'){toast('Rapor hazırlanıyor...');const accepted=window.AndroidApp.printHtml('Uretim Performans Raporu',doc);if(accepted===false)throw new Error('Android yazdırma köprüsü isteği kabul etmedi.');closePdfReportModal();return;}
-  const w=window.open('','_blank');if(!w)throw new Error('Yazdırma penceresi engellendi.');w.document.write(doc.replace('</body>','<script>window.onload=()=>setTimeout(()=>window.print(),250)<\\/script></body>'));w.document.close();closePdfReportModal();
-"""
-if old_tail not in body:
-    raise SystemExit('smart print tail missing')
-body=body.replace(old_tail,new_tail,1)
-new='function printSmartReportV151(){\n  try{\n'+body+'\n  }catch(err){smartPrintError(err);}\n}'
-html=html[:start]+new+html[end:]
-html=html.replace("if($('createSmartPdfBtn'))$('createSmartPdfBtn').onclick=printSmartReportV140;","if($('createSmartPdfBtn'))$('createSmartPdfBtn').onclick=printSmartReportV151;",1)
+bind="if($('createSmartPdfBtn'))$('createSmartPdfBtn').onclick=printSmartReportV140;"
+if bind not in html:
+    raise SystemExit('smart PDF button binding missing')
+html=html.replace(bind,"if($('createSmartPdfBtn'))$('createSmartPdfBtn').onclick=printSmartReportV151;",1)
 html=html.replace('v1.5.0-professional-ui','v1.5.1-print-hotfix')
 html=html.replace('v1.5.0 • Android / tamamen offline','v1.5.1 • Android / tamamen offline')
 p.write_text(html,encoding='utf-8')
