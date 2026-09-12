@@ -1,0 +1,82 @@
+from pathlib import Path
+import re
+
+p=Path('app/src/main/assets/index.html')
+html=p.read_text(encoding='utf-8')
+
+# Version
+html=html.replace('v1.0.0 • Android / tamamen offline','v1.1.0 • Android / tamamen offline')
+html=html.replace("appVersion:'1.0.0'", "appVersion:'1.1.0'")
+html=html.replace("appVersion:'0.9.0'", "appVersion:'1.1.0'")
+
+# Dashboard controls and shift summary
+old='''        <div class="panel filter-panel">
+          <div class="field compact">
+            <label>Tarih</label>
+            <input type="date" id="dashDate" />
+          </div>
+          <div class="field compact">
+            <label>Vardiya</label>
+            <select id="dashShift"></select>
+          </div>
+          <button id="refreshDashboard" class="btn primary">Güncelle</button>
+        </div>
+
+        <div class="metric-grid" id="dashboardMetrics"></div>
+        <div class="section-head">
+          <div>
+            <h2>Makineler</h2>
+            <p>Makine kartına dokunarak üretim kaydı aç.</p>
+          </div>
+        </div>
+        <div id="machineGrid" class="machine-grid"></div>'''
+new='''        <div class="panel filter-panel">
+          <div class="field compact">
+            <label>Referans Tarih</label>
+            <input type="date" id="dashDate" />
+          </div>
+          <div class="field compact">
+            <label>Vardiya</label>
+            <select id="dashShift"></select>
+          </div>
+          <button id="refreshDashboard" class="btn primary">Güncelle</button>
+        </div>
+
+        <div class="dashboard-period-shell">
+          <div class="period-tabs dashboard-period-tabs" id="dashboardPeriodTabs">
+            <button type="button" class="active" data-dashboard-period="day">Günlük</button>
+            <button type="button" data-dashboard-period="week">Haftalık</button>
+            <button type="button" data-dashboard-period="month">Aylık</button>
+            <button type="button" data-dashboard-period="year">Yıllık</button>
+          </div>
+          <div class="dashboard-period-label" id="dashPeriodLabel"></div>
+        </div>
+
+        <div class="metric-grid" id="dashboardMetrics"></div>
+        <div class="section-head">
+          <div>
+            <h2>Vardiyalar</h2>
+            <p>Seçili dönemin vardiya bazlı üretim, fire ve duruş karşılaştırması.</p>
+          </div>
+        </div>
+        <div id="shiftGrid" class="shift-grid"></div>
+        <div class="section-head">
+          <div>
+            <h2>Makineler</h2>
+            <p>Seçili dönemin makine performansı. Makine kartına dokunarak yeni üretim kaydı aç.</p>
+          </div>
+        </div>
+        <div id="machineGrid" class="machine-grid"></div>'''
+if old not in html:
+    raise SystemExit('dashboard html anchor missing')
+html=html.replace(old,new,1)
+
+# Rename report tab label to make plate analysis visible
+html=html.replace('<button data-report-detail="mix">Renk & Lak</button>','<button data-report-detail="mix">Renk / Kalıp / Lak</button>',1)
+
+# CSS additions / overrides
+css='''
+/* ===== v1.1.0 dashboard + quality ===== */
+.dashboard-period-shell{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:12px 0 4px;padding:10px 12px;border:1px solid #202834;border-radius:14px;background:linear-gradient(180deg,#0d1218,#0a0e13)}
+.dashboard-period-tabs{margin:0}.dashboard-period-tabs button{padding:8px 13px}.dashboard-period-label{color:#8f99a8;font-size:12px;text-align:right}
+.shift-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:18px}.shift-card{cursor:pointer;background:linear-gradient(150deg,#121820,#0e1218);border:1px solid #27303b;border-radius:15px;padding:15px;transition:.18s transform,.18s border-color,.18s background}.shift-card:hover{transform:translateY(-1px);border-color:#4d5968}.shift-card.active{background:linear-gradient(150deg,#1c171a,#11151b);border-color:#7c313a;box-shadow:inset 3px 0 0 #b82431}.shift-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.shift-card-head strong{font-size:16px}.shift-card-head span{font-size:10px;color:#8f99a8;text-transform:uppercase;letter-spacing:.6px}.shift-card-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-top:12px}.shift-card-kpis div{background:#0a0e13;border:1px solid #202733;border-radius:9px;padding:8px}.shift-card-kpis span{display:block;color:#778292;font-size:9px;text-transform:uppercase}.shift-card-kpis strong{display:block;margin-top:4px;font-size:13px}
