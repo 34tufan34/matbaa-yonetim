@@ -1,0 +1,41 @@
+.quality-badge{min-width:0!important;display:inline-grid!important;grid-template-columns:22px auto auto;align-items:center;gap:6px;padding:4px 7px 4px 4px!important;border-radius:10px!important;border:1px solid #2a323d!important;background:#10151c!important;color:#d9dfe7!important;font-size:10px!important;font-weight:750!important;box-shadow:none!important}.quality-badge .quality-mark{display:grid;place-items:center;width:22px;height:22px;border-radius:7px;background:#1e2631;color:#aab5c2;font-size:12px;font-weight:900}.quality-badge .quality-name{letter-spacing:.15px}.quality-badge .quality-count{display:grid;place-items:center;min-width:19px;height:19px;padding:0 5px;border-radius:999px;background:#242d39;color:#cdd5df;font-size:9px;font-weight:900}.quality-badge.critical{border-color:#5a2930!important}.quality-badge.critical .quality-mark{background:#351a20;color:#ff9ca6}.quality-badge.critical .quality-count{background:#31181d;color:#ffb4bb}.quality-badge.warn{border-color:#5b4c29!important}.quality-badge.warn .quality-mark{background:#302817;color:#e6c66f}.quality-badge.warn .quality-count{background:#2d2617;color:#efd47f}.quality-badge.ok{border-color:#28503d!important}.quality-badge.ok .quality-mark{background:#16271f;color:#83ddb0}.quality-badge.ok{grid-template-columns:22px auto}.quality-badge.ok .quality-count{display:none}
+.plate-color-table td:first-child strong{font-size:13px}.plate-color-source{display:inline-flex;margin-left:6px;padding:2px 5px;border-radius:999px;background:#1d2530;color:#8fa1b5;font-size:8px;text-transform:uppercase;letter-spacing:.4px}
+@media(max-width:820px){.dashboard-period-shell{display:block}.dashboard-period-label{text-align:left;margin-top:8px}.shift-grid{grid-template-columns:1fr}.shift-card-kpis{grid-template-columns:repeat(2,1fr)}}
+'''
+html=html.replace('</style>',css+'\n</style>',1)
+
+# Dashboard JS: insert helpers and replace renderer
+anchor='function renderDashboard(){'
+start=html.find(anchor)
+end=html.find('\nfunction openRecordModal',start)
+if start<0 or end<0: raise SystemExit('renderDashboard block missing')
+new_dashboard=r'''let dashboardPeriod='day';
+function dashboardPeriodRange(refDate,period){
+  const d=new Date((refDate||todayISO())+'T12:00:00');
+  const iso=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
+  if(period==='week'){const s=new Date(d);const day=(s.getDay()+6)%7;s.setDate(s.getDate()-day);const e=new Date(s);e.setDate(e.getDate()+6);return [iso(s),iso(e)];}
+  if(period==='month'){const s=new Date(d.getFullYear(),d.getMonth(),1,12);const e=new Date(d.getFullYear(),d.getMonth()+1,0,12);return [iso(s),iso(e)];}
+  if(period==='year'){return [`${d.getFullYear()}-01-01`,`${d.getFullYear()}-12-31`];}
+  const t=iso(d); return [t,t];
+}
+function dashboardPeriodName(period){return ({day:'Günlük',week:'Haftalık',month:'Aylık',year:'Yıllık'})[period]||'Günlük';}
+function setDashboardPeriod(period){dashboardPeriod=period||'day';qsa('#dashboardPeriodTabs button').forEach(b=>b.classList.toggle('active',b.dataset.dashboardPeriod===dashboardPeriod));renderDashboard();}
+function renderDashboard(){
+  populateSelects();
+  if(!$('dashDate').value) $('dashDate').value=todayISO();
+  const refDate=$('dashDate').value, shiftId=$('dashShift').value;
+  const [startDate,endDate]=dashboardPeriodRange(refDate,dashboardPeriod);
+  const periodRows=state.productionRecords.filter(r=>r.date>=startDate&&r.date<=endDate);
+  const rows=periodRows.filter(r=>!shiftId||r.shiftId===shiftId);
+  const good=sum(rows,'goodQty'), scrap=sum(rows,'scrapQty'), down=sum(rows,'downtimeMin');
+  const total=good+scrap;
+  if($('dashPeriodLabel')) $('dashPeriodLabel').textContent=`${dashboardPeriodName(dashboardPeriod)} • ${formatRange(startDate,endDate)}${shiftId?' • '+(getById(state.shifts,shiftId)?.name||'Vardiya'):''}`;
+  $('dashboardMetrics').innerHTML=[
+    metric('Net Baskı',fmtNum(good),'tabaka'), metric('Fire',fmtNum(scrap),fmtPct(total?scrap*100/total:0)),
+    metric('İş Sayısı',fmtNum(uniqueJobs(rows)),'benzersiz iş emri'), metric('Kalıp',fmtNum(sum(rows,'plateQty')),'adet'),
+    metric('Duruş',fmtNum(down),'dakika'), metric('Kayıt',fmtNum(rows.length),'üretim satırı')
+  ].join('');
+
+  const shifts=activeItems(state.shifts);
+  $('shiftGrid').innerHTML=shifts.length?shifts.map(sh=>{
+    const sr=periodRows.filter(r=>r.shiftId===sh.id), sg=sum(sr,'goodQty'), ss=sum(sr,'scrapQty'), st=sg+ss;
