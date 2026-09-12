@@ -50,6 +50,26 @@ jobs:
           grep -q 'printReportBtn' app/src/main/assets/index.html
           grep -q 'qualityFilterBar' app/src/main/assets/index.html
 
+      - name: Make v1 report patch binding robust
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('builder/patch_v100.py')
+          s=p.read_text(encoding='utf-8')
+          marker='old="""  qsa(\'#periodTabs button\')'
+          start=s.find(marker)
+          if start < 0:
+              raise SystemExit('v1 bind patch source block not found')
+          tail='html=html.replace(old,new,1)'
+          end=s.find(tail,start)
+          if end < 0:
+              raise SystemExit('v1 bind patch tail not found')
+          end += len(tail)
+          replacement="""anchor=\"qsa('#performanceTabs button').forEach(b=>b.onclick=()=>{ currentPerformanceDimension=b.dataset.dimension; runReport(); });\"\nif anchor not in html: raise SystemExit('performance bind anchor missing')\nhtml=html.replace(anchor,anchor+\" qsa('#reportDetailTabs button').forEach(b=>b.onclick=()=>{currentReportDetail=b.dataset.reportDetail;renderExtendedReport(currentReportDetail,currentReportRows);});\",1)"""
+          s=s[:start]+replacement+s[end:]
+          p.write_text(s,encoding='utf-8')
+          PY
+
       - name: Apply v1.0 report center
         run: |
           python builder/patch_v100.py
