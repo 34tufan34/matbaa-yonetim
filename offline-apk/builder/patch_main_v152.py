@@ -1,0 +1,34 @@
+from pathlib import Path
+p=Path('app/src/main/java/com/tufanprintops/uretimperformans/MainActivity.java')
+s=p.read_text(encoding='utf-8')
+
+# Imports for an attached off-screen print WebView.
+if 'import android.widget.FrameLayout;' not in s:
+    s=s.replace('import android.webkit.WebViewClient;\n', 'import android.webkit.WebViewClient;\nimport android.widget.FrameLayout;\nimport android.view.ViewGroup;\n')
+
+# Keep a root container so the dedicated print WebView is attached to the Activity.
+s=s.replace('    private WebView webView;\n    private WebView printWebView;\n', '    private FrameLayout rootLayout;\n    private WebView webView;\n    private WebView printWebView;\n')
+
+old_oncreate='''        webView = new WebView(this);\n        setContentView(webView);\n        configureWebView();\n        loadEmbeddedApp();'''
+new_oncreate='''        rootLayout = new FrameLayout(this);\n        webView = new WebView(this);\n        rootLayout.addView(webView, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));\n        setContentView(rootLayout);\n        configureWebView();\n        loadEmbeddedApp();'''
+if old_oncreate not in s:
+    raise SystemExit('onCreate layout block not found')
+s=s.replace(old_oncreate,new_oncreate,1)
+
+start=s.find('        @JavascriptInterface\n        public void printHtml(String title, String html) {')
+if start<0:
+    raise SystemExit('v1.5 printHtml start not found')
+end=s.find('\n        }\n', start)
+# Find the matching end by locating the next bridge method annotation instead of trusting nested braces.
+next_method=s.find('\n        @JavascriptInterface', start+10)
+if next_method<0:
+    # printHtml may be the last JavascriptInterface method; use enclosing class marker later.
+    next_method=s.find('\n    }\n}', start)
+if next_method<0:
+    raise SystemExit('next bridge method after printHtml not found')
+old=s[start:next_method]
+
+new='''        @JavascriptInterface\n        public boolean printHtml(String title, String html) {\n            final String jobTitle = (title == null || title.trim().isEmpty()) ? "Üretim Raporu" : title.trim();\n            final String safeHtml = (html == null || html.trim().isEmpty()) ? "<html><body><h2>Rapor içeriği boş.</h2></body></html>" : html;\n            runOnUiThread(() -> {\n                try {\n                    if (webView != null) {\n                        webView.evaluateJavascript("if(window.nativePrintPreparing){nativePrintPreparing();}", null);\n                    }\n                    if (printWebView != null) {\n                        try {\n                            if (rootLayout != null) rootLayout.removeView(printWebView);\n                            printWebView.stopLoading();\n                            printWebView.destroy();\n                        } catch (Exception ignored) {}\n                        printWebView = null;\n                    }\n\n                    final WebView pv = new WebView(MainActivity.this);\n                    printWebView = pv;\n                    pv.setBackgroundColor(Color.WHITE);\n                    WebSettings ps = pv.getSettings();\n                    ps.setJavaScriptEnabled(false);\n                    ps.setDomStorageEnabled(false);\n                    ps.setLoadWithOverviewMode(true);\n                    ps.setUseWideViewPort(true);\n                    ps.setOffscreenPreRaster(true);\n\n                    // Samsung/Android 16 WebView may not finish rendering an unattached WebView.\n                    // Attach the print view behind the visible app WebView so it can layout normally.\n                    if (rootLayout == null) throw new IllegalStateException("Yazdırma görünüm kapsayıcısı hazır değil");\n                    FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(\n                            ViewGroup.LayoutParams.MATCH_PARENT,\n                            ViewGroup.LayoutParams.MATCH_PARENT);\n                    rootLayout.addView(pv, 0, lp);\n\n                    final boolean[] printRequested = {false};\n                    final Runnable startPrint = () -> {\n                        if (printRequested[0] || printWebView != pv || isFinishing()) return;\n                        printRequested[0] = true;\n                        try {\n                            PrintManager pm = (PrintManager) getSystemService(Context.PRINT_SERVICE);\n                            if (pm == null) throw new IllegalStateException("Android yazdırma servisi bulunamadı");\n                            pm.print(jobTitle, pv.createPrintDocumentAdapter(jobTitle), null);\n                            if (webView != null) {\n                                webView.evaluateJavascript("if(window.nativePrintStarted){nativePrintStarted();}", null);\n                            }\n                        } catch (Exception ex) {\n                            final String msg = ex.getMessage() == null ? ex.toString() : ex.getMessage();\n                            if (webView != null) {\n                                webView.evaluateJavascript("if(window.nativePrintFailed){nativePrintFailed(" + jsQuote(msg) + ");}", null);\n                            }\n                        }\n                    };\n\n                    pv.setWebViewClient(new WebViewClient() {\n                        @Override public void onPageCommitVisible(WebView view, String url) {\n                            view.postDelayed(startPrint, 120);\n                        }\n                        @Override public void onPageFinished(WebView view, String url) {\n                            view.postDelayed(startPrint, 120);\n                        }\n                    });\n\n                    pv.loadDataWithBaseURL("https://print.local/", safeHtml, "text/html", "UTF-8", null);\n                    // OEM fallback: do not depend exclusively on onPageFinished.\n                    pv.postDelayed(startPrint, 1200);\n                    // If even the fallback did not launch, return a visible error instead of hanging silently.\n                    pv.postDelayed(() -> {\n                        if (!printRequested[0] && printWebView == pv && webView != null) {\n                            webView.evaluateJavascript("if(window.nativePrintFailed){nativePrintFailed('Yazdırma görünümü hazırlanamadı.');}", null);\n                        }\n                    }, 3500);\n                } catch (Exception ex) {\n                    final String msg = ex.getMessage() == null ? ex.toString() : ex.getMessage();\n                    if (webView != null) {\n                        webView.evaluateJavascript("if(window.nativePrintFailed){nativePrintFailed(" + jsQuote(msg) + ");}", null);\n                    }\n                }\n            });\n            return true;\n        }\n'''
+s=s[:start]+new+s[next_method:]
+p.write_text(s,encoding='utf-8')
+print('patched-main-v152')
