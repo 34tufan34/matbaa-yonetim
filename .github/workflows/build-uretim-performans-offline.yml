@@ -118,7 +118,8 @@ jobs:
           grep -q 'migrateShiftNamesV161' app/src/main/assets/index.html
           grep -q '1. Vardiya' app/src/main/assets/index.html
           grep -q '2. Vardiya' app/src/main/assets/index.html
-          grep -q 'data-all-section="compare"' app/src/main/assets/index.html
+          grep -q 'TÜM RAPORLAR' app/src/main/assets/index.html
+          grep -q "\['compare','Karşılaştırma',comparisonExtended(rows)\]" app/src/main/assets/index.html
 
       - name: Validate embedded JavaScript
         run: |
