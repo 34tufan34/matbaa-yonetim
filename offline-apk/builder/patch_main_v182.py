@@ -44,8 +44,8 @@ method=r'''    private double parseJsNumberV182(String raw) {
                     int width = pv.getWidth();
                     if (width <= 0 && rootLayout != null) width = rootLayout.getWidth();
                     if (width <= 0) width = 1200;
-                    int wSpec = View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY);
-                    int hSpec = View.MeasureSpec.makeMeasureSpec(targetHeight, View.MeasureSpec.EXACTLY);
+                    int wSpec = android.view.View.MeasureSpec.makeMeasureSpec(width, android.view.View.MeasureSpec.EXACTLY);
+                    int hSpec = android.view.View.MeasureSpec.makeMeasureSpec(targetHeight, android.view.View.MeasureSpec.EXACTLY);
                     pv.measure(wSpec, hSpec);
                     pv.layout(0, 0, width, targetHeight);
                     pv.invalidate();
