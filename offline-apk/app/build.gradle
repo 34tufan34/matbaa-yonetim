@@ -10,8 +10,8 @@ android {
         applicationId 'com.tufanprintops.uretimperformans.production'
         minSdk 26
         targetSdk 35
-        versionCode 1601
-        versionName '1.6.1'
+        versionCode 1700
+        versionName '1.7.0'
     }
 
     buildTypes {
