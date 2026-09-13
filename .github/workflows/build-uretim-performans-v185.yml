@@ -60,6 +60,7 @@ jobs:
           python builder/patch_v100.py
           python builder/patch_v100_pdf.py
           cat builder/patch_v110.part* > /tmp/patch_v110.py && python /tmp/patch_v110.py
+          python builder/patch_v120.py
           base64 -d builder/patch_v130.py.gz.b64 | gzip -d > /tmp/patch_v130.py && python /tmp/patch_v130.py
           base64 -d builder/patch_v140.py.gz.b64 | gzip -d > /tmp/patch_v140.py && python /tmp/patch_v140.py
           python builder/patch_v150.py
