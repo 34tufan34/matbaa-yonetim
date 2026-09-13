@@ -3,7 +3,7 @@ name: Build Uretim Performans Offline APK
 on:
   push:
     branches:
-      - uretim-performans-offline-v1.8.0
+      - uretim-performans-offline-v1.8.1
     paths:
       - 'offline-apk/**'
       - '.github/workflows/build-uretim-performans-offline.yml'
@@ -120,10 +120,13 @@ jobs:
         run: |
           python builder/patch_v180.py
           grep -q 'v1.8.0-reportcenter-pdf-command' app/src/main/assets/index.html
-          grep -q 'renderDashboardV180' app/src/main/assets/index.html
           grep -q 'buildReportCenterPdfV180' app/src/main/assets/index.html
-          grep -q 'createActiveReportPdfBtn' app/src/main/assets/index.html
-          grep -q 'commandMachineGrid' app/src/main/assets/index.html
+
+      - name: Apply v1.8.1 all-report PDF hotfix
+        run: |
+          python builder/patch_v181.py
+          grep -q 'v1.8.1-plate-color-table-fix' app/src/main/assets/index.html
+          grep -q 'function plateColorTable(stats)' app/src/main/assets/index.html
 
       - name: Validate embedded JavaScript
         run: |
@@ -132,14 +135,19 @@ jobs:
           import re
           s=Path('app/src/main/assets/index.html').read_text(encoding='utf-8')
           scripts=re.findall(r'<script[^>]*>(.*?)</script>',s,re.S)
-          Path('/tmp/upm-v180.js').write_text('\n'.join(scripts),encoding='utf-8')
+          joined='\n'.join(scripts)
+          Path('/tmp/upm-v181.js').write_text(joined,encoding='utf-8')
+          if joined.count('plateColorTable(') < 2:
+              raise SystemExit('plateColorTable call/definition smoke check failed')
+          if 'function plateColorTable(stats)' not in joined:
+              raise SystemExit('plateColorTable definition missing')
           PY2
-          node --check /tmp/upm-v180.js
+          node --check /tmp/upm-v181.js
 
       - name: Set Android UI version
         run: |
-          sed -i 's/v0.9.0/v1.8.0/g; s/v0.9.2/v1.8.0/g; s/v0.9.3/v1.8.0/g; s/v1.0.0/v1.8.0/g; s/v1.1.0/v1.8.0/g; s/v1.2.0/v1.8.0/g; s/v1.3.0/v1.8.0/g; s/v1.4.0/v1.8.0/g; s/v1.5.0/v1.8.0/g; s/v1.5.1/v1.8.0/g; s/v1.5.2/v1.8.0/g; s/v1.6.0/v1.8.0/g; s/v1.6.1/v1.8.0/g; s/v1.7.0/v1.8.0/g; s/v1.7.1/v1.8.0/g' app/src/main/assets/index.html
-          sed -i 's/v0.9.2/v1.8.0/g; s/v0.9.3/v1.8.0/g; s/v1.0.0/v1.8.0/g; s/v1.1.0/v1.8.0/g; s/v1.2.0/v1.8.0/g; s/v1.3.0/v1.8.0/g; s/v1.4.0/v1.8.0/g; s/v1.5.0/v1.8.0/g; s/v1.5.1/v1.8.0/g; s/v1.5.2/v1.8.0/g; s/v1.6.0/v1.8.0/g; s/v1.6.1/v1.8.0/g; s/v1.7.0/v1.8.0/g; s/v1.7.1/v1.8.0/g; s/return "0.9.2"/return "1.8.0"/g; s/return "0.9.3"/return "1.8.0"/g; s/return "1.0.0"/return "1.8.0"/g; s/return "1.1.0"/return "1.8.0"/g; s/return "1.2.0"/return "1.8.0"/g; s/return "1.3.0"/return "1.8.0"/g; s/return "1.4.0"/return "1.8.0"/g; s/return "1.5.0"/return "1.8.0"/g; s/return "1.5.1"/return "1.8.0"/g; s/return "1.5.2"/return "1.8.0"/g; s/return "1.6.0"/return "1.8.0"/g; s/return "1.6.1"/return "1.8.0"/g; s/return "1.7.0"/return "1.8.0"/g; s/return "1.7.1"/return "1.8.0"/g' app/src/main/java/com/tufanprintops/uretimperformans/MainActivity.java
+          sed -i 's/v0.9.0/v1.8.1/g; s/v0.9.2/v1.8.1/g; s/v0.9.3/v1.8.1/g; s/v1.0.0/v1.8.1/g; s/v1.1.0/v1.8.1/g; s/v1.2.0/v1.8.1/g; s/v1.3.0/v1.8.1/g; s/v1.4.0/v1.8.1/g; s/v1.5.0/v1.8.1/g; s/v1.5.1/v1.8.1/g; s/v1.5.2/v1.8.1/g; s/v1.6.0/v1.8.1/g; s/v1.6.1/v1.8.1/g; s/v1.7.0/v1.8.1/g; s/v1.7.1/v1.8.1/g; s/v1.8.0/v1.8.1/g' app/src/main/assets/index.html
+          sed -i 's/v0.9.2/v1.8.1/g; s/v0.9.3/v1.8.1/g; s/v1.0.0/v1.8.1/g; s/v1.1.0/v1.8.1/g; s/v1.2.0/v1.8.1/g; s/v1.3.0/v1.8.1/g; s/v1.4.0/v1.8.1/g; s/v1.5.0/v1.8.1/g; s/v1.5.1/v1.8.1/g; s/v1.5.2/v1.8.1/g; s/v1.6.0/v1.8.1/g; s/v1.6.1/v1.8.1/g; s/v1.7.0/v1.8.1/g; s/v1.7.1/v1.8.1/g; s/v1.8.0/v1.8.1/g; s/return "0.9.2"/return "1.8.1"/g; s/return "0.9.3"/return "1.8.1"/g; s/return "1.0.0"/return "1.8.1"/g; s/return "1.1.0"/return "1.8.1"/g; s/return "1.2.0"/return "1.8.1"/g; s/return "1.3.0"/return "1.8.1"/g; s/return "1.4.0"/return "1.8.1"/g; s/return "1.5.0"/return "1.8.1"/g; s/return "1.5.1"/return "1.8.1"/g; s/return "1.5.2"/return "1.8.1"/g; s/return "1.6.0"/return "1.8.1"/g; s/return "1.6.1"/return "1.8.1"/g; s/return "1.7.0"/return "1.8.1"/g; s/return "1.7.1"/return "1.8.1"/g; s/return "1.8.0"/return "1.8.1"/g' app/src/main/java/com/tufanprintops/uretimperformans/MainActivity.java
 
       - name: Build unsigned production APK
         run: gradle clean :app:assembleRelease --stacktrace
@@ -150,11 +158,11 @@ jobs:
           test -s "$APK"
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | tee /tmp/badging.txt | head -n 12
           grep -q "package: name='com.tufanprintops.uretimperformans.production'" /tmp/badging.txt
-          grep -q "versionCode='1800'" /tmp/badging.txt
+          grep -q "versionCode='1801'" /tmp/badging.txt
 
       - name: Prepare signing toolkit and unsigned artifact
         run: |
-          cp app/build/outputs/apk/release/app-release-unsigned.apk Uretim-Performans-Merkezi-v1.8.0-PRODUCTION-unsigned.apk
+          cp app/build/outputs/apk/release/app-release-unsigned.apk Uretim-Performans-Merkezi-v1.8.1-PRODUCTION-unsigned.apk
           mkdir -p sign-tools/lib
           cp $ANDROID_HOME/build-tools/35.0.0/apksigner sign-tools/
           cp $ANDROID_HOME/build-tools/35.0.0/zipalign sign-tools/
@@ -164,9 +172,9 @@ jobs:
       - name: Upload unsigned APK, final HTML and signing toolkit
         uses: actions/upload-artifact@v4
         with:
-          name: Uretim-Performans-Merkezi-v1.8.0-PRODUCTION-unsigned
+          name: Uretim-Performans-Merkezi-v1.8.1-PRODUCTION-unsigned
           path: |
-            offline-apk/Uretim-Performans-Merkezi-v1.8.0-PRODUCTION-unsigned.apk
+            offline-apk/Uretim-Performans-Merkezi-v1.8.1-PRODUCTION-unsigned.apk
             offline-apk/app/src/main/assets/index.html
             offline-apk/sign-tools/**
           if-no-files-found: error
