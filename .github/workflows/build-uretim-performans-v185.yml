@@ -1,0 +1,111 @@
+name: Build Uretim Performans v1.8.5 APK
+
+on:
+  push:
+    branches: [uretim-performans-offline-v1.8.5]
+    paths:
+      - 'offline-apk/**'
+      - '.github/workflows/build-uretim-performans-v185.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: offline-apk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Rebuild UI
+        run: |
+          mkdir -p app/src/main/assets
+          cat builder/index.part*.b64 | base64 -d | gzip -d > app/src/main/assets/index.html
+          python builder/patch_v093.py
+          python - <<'PY2'
+          from pathlib import Path
+          p=Path('builder/patch_v100.py'); s=p.read_text(encoding='utf-8')
+          marker='old="""  qsa(\'#periodTabs button\')'; start=s.find(marker)
+          tail='html=html.replace(old,new,1)'; end=s.find(tail,start)
+          if start<0 or end<0: raise SystemExit('v1 binding block not found')
+          end+=len(tail)
+          replacement="""anchor=\"qsa('#performanceTabs button').forEach(b=>b.onclick=()=>{ currentPerformanceDimension=b.dataset.dimension; runReport(); });\"\nif anchor not in html: raise SystemExit('performance bind anchor missing')\nhtml=html.replace(anchor,anchor+\" qsa('#reportDetailTabs button').forEach(b=>b.onclick=()=>{currentReportDetail=b.dataset.reportDetail;renderExtendedReport(currentReportDetail,currentReportRows);});\",1)"""
+          p.write_text(s[:start]+replacement+s[end:],encoding='utf-8')
+          PY2
+      - name: Apply patches
+        run: |
+          python builder/patch_v100.py
+          python builder/patch_v100_pdf.py
+          cat builder/patch_v110.part* > /tmp/p110.py && python /tmp/p110.py
+          python builder/patch_v120.py
+          base64 -d builder/patch_v130.py.gz.b64 | gzip -d > /tmp/p130.py && python /tmp/p130.py
+          base64 -d builder/patch_v140.py.gz.b64 | gzip -d > /tmp/p140.py && python /tmp/p140.py
+          python builder/patch_v150.py
+          python builder/patch_main_v150.py
+          python builder/patch_v151.py
+          python builder/patch_main_v152.py
+          python builder/patch_v160.py
+          python builder/patch_main_v160.py
+          python builder/patch_v161.py
+          python builder/patch_v170.py
+          python builder/patch_v171.py
+          python builder/patch_v180.py
+          python builder/patch_v181.py
+          python builder/patch_v182.py
+          python builder/patch_main_v182.py
+          python builder/patch_v183.py
+          python builder/patch_v184.py
+          python builder/patch_main_v184.py
+          python builder/patch_v185.py
+          python builder/patch_main_v185.py
+      - name: Validate
+        run: |
+          grep -q 'v1.8.5-machine-failures' app/src/main/assets/index.html
+          grep -q 'machineFailures' app/src/main/assets/index.html
+          grep -q 'Makine Arızaları' app/src/main/assets/index.html
+          grep -q 'v1.8.5-five-page-distribution' app/src/main/java/com/tufanprintops/uretimperformans/MainActivity.java
+          python - <<'PY2'
+          from pathlib import Path
+          import re
+          s=Path('app/src/main/assets/index.html').read_text(encoding='utf-8')
+          Path('/tmp/v185.js').write_text('\n'.join(re.findall(r'<script[^>]*>(.*?)</script>',s,re.S)),encoding='utf-8')
+          PY2
+          node --check /tmp/v185.js
+      - name: Set UI version
+        run: |
+          sed -i -E 's/v(0\.9\.[0-9]+|1\.[0-8]\.[0-9]+)/v1.8.5/g' app/src/main/assets/index.html
+          sed -i -E 's/return "(0\.9\.[0-9]+|1\.[0-8]\.[0-9]+)"/return "1.8.5"/g' app/src/main/java/com/tufanprintops/uretimperformans/MainActivity.java
+      - name: Build
+        run: gradle clean :app:assembleRelease --stacktrace
+      - name: Verify
+        run: |
+          APK=app/build/outputs/apk/release/app-release-unsigned.apk
+          test -s "$APK"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | tee /tmp/badging.txt | head -n 12
+          grep -q "package: name='com.tufanprintops.uretimperformans.production'" /tmp/badging.txt
+          grep -q "versionCode='1805'" /tmp/badging.txt
+      - name: Prepare artifact
+        run: |
+          cp app/build/outputs/apk/release/app-release-unsigned.apk Uretim-Performans-Merkezi-v1.8.5-PRODUCTION-unsigned.apk
+          mkdir -p sign-tools/lib
+          cp $ANDROID_HOME/build-tools/35.0.0/apksigner sign-tools/
+          cp $ANDROID_HOME/build-tools/35.0.0/zipalign sign-tools/
+          cp $ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar sign-tools/lib/
+          chmod +x sign-tools/apksigner sign-tools/zipalign
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Uretim-Performans-Merkezi-v1.8.5-PRODUCTION-unsigned
+          path: |
+            offline-apk/Uretim-Performans-Merkezi-v1.8.5-PRODUCTION-unsigned.apk
+            offline-apk/app/src/main/assets/index.html
+            offline-apk/sign-tools/**
+          retention-days: 14
