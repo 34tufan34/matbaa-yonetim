@@ -75,8 +75,8 @@ jobs:
         run: |
           grep -q 'v1.8.5-machine-failures' app/src/main/assets/index.html
           grep -q 'v1.8.7-print-adapter-layout' app/src/main/assets/index.html
-          grep -q 'printAdapterPdfV187' app/src/main/java/com/tufanprintops/uretimperformans/MainActivity.java
-          grep -q 'createPrintDocumentAdapter' app/src/main/java/com/tufanprintops/uretimperformans/MainActivity.java
+          grep -q 'pagedPdfV187' app/src/main/java/com/tufanprintops/uretimperformans/MainActivity.java
+          grep -q 'UPM-PDF-Writer' app/src/main/java/com/tufanprintops/uretimperformans/MainActivity.java
           python - <<'PY2'
           from pathlib import Path
           import re
