@@ -1,112 +1,93 @@
 from pathlib import Path
 p=Path('app/src/main/java/com/tufanprintops/uretimperformans/MainActivity.java')
 s=p.read_text(encoding='utf-8')
-if 'createPdfFromWebViewV182' in s:
+if 'prepareFullHeightPdfV182' in s:
     raise SystemExit('already patched')
 
-imports=[
-('import android.print.PrintAttributes;','import android.print.PrintManager;\n'),
-('import android.print.PrintDocumentAdapter;','import android.print.PrintManager;\n'),
-('import android.print.PageRange;','import android.print.PrintManager;\n'),
-('import android.os.CancellationSignal;','import android.os.Bundle;\n'),
-('import android.os.ParcelFileDescriptor;','import android.os.Bundle;\n'),
-]
-for line,anchor in imports:
-    if line not in s:
-        if anchor not in s: raise SystemExit('import anchor missing: '+anchor)
-        s=s.replace(anchor,anchor+line+'\n',1)
+# The old capturePicture PDF path was slicing a document taller than the actually
+# rasterized WebView, which produced the dark blank pages seen in the exported PDF.
+# Keep the proven local PdfDocument writer, but expand the attached print WebView to
+# the complete HTML document height before capture so every report block is rendered.
+old_js='            ps.setJavaScriptEnabled(false);\n'
+if old_js not in s:
+    raise SystemExit('print WebView JavaScript setting not found')
+s=s.replace(old_js,'            ps.setJavaScriptEnabled(true);\n',1)
 
-old='pv.postDelayed(() -> createPdfFromWebView(jobTitle, pv), 700);'
-new='pv.postDelayed(() -> createPdfFromWebViewV182(jobTitle, pv), 700);'
-if old not in s: raise SystemExit('PDF start call missing')
-s=s.replace(old,new,1)
+old_call='                pv.postDelayed(() -> createPdfFromWebView(jobTitle, pv), 700);\n'
+if old_call not in s:
+    raise SystemExit('legacy PDF capture call not found')
+s=s.replace(old_call,'                pv.postDelayed(() -> prepareFullHeightPdfV182(jobTitle, pv), 700);\n',1)
 
 marker='    @SuppressWarnings("deprecation")\n    private void createPdfFromWebView(String jobTitle, WebView pv) {'
-if marker not in s: raise SystemExit('legacy PDF method anchor missing')
+if marker not in s:
+    raise SystemExit('legacy createPdfFromWebView marker missing')
 
-method=r'''    private void failPdfV182(File out, ParcelFileDescriptor pfd, String message) {
-        try { if (pfd != null) pfd.close(); } catch (Exception ignored) {}
-        try { if (out != null && out.exists()) out.delete(); } catch (Exception ignored) {}
-        String msg = (message == null || message.trim().isEmpty()) ? "PDF oluşturulamadı." : message;
-        notifyJs("if(window.nativePrintFailed){nativePrintFailed(" + jsQuote(msg) + ");}");
-        cleanupPrintWebView();
+method=r'''    private double parseJsNumberV182(String raw) {
+        if (raw == null) return 0d;
+        String v = raw.trim();
+        if (v.startsWith("\"") && v.endsWith("\"") && v.length() >= 2) v = v.substring(1, v.length() - 1);
+        try { return Double.parseDouble(v); } catch (Exception ignored) { return 0d; }
     }
 
-    private void finishPdfV182(String jobTitle, File out, ParcelFileDescriptor pfd) {
-        try { if (pfd != null) pfd.close(); } catch (Exception ignored) {}
+    private void captureExpandedPdfV182(String jobTitle, WebView pv, int targetHeight) {
+        if (printWebView != pv || isFinishing()) return;
         try {
-            if (out == null || !out.exists() || out.length() < 256) throw new IllegalStateException("PDF dosyası oluşturulamadı.");
-            pendingPdfFile = out;
-            String base = sanitizeFileName(jobTitle);
-            pendingPdfName = base.toLowerCase().endsWith(".pdf") ? base : base + ".pdf";
-            cleanupPrintWebView();
-            notifyJs("if(window.nativePrintStarted){nativePrintStarted();}");
-            Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
-            intent.addCategory(Intent.CATEGORY_OPENABLE);
-            intent.setType("application/pdf");
-            intent.putExtra(Intent.EXTRA_TITLE, pendingPdfName);
-            startActivityForResult(intent, REQ_SAVE_PDF);
+            ViewGroup.LayoutParams params = pv.getLayoutParams();
+            if (params == null) params = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, targetHeight);
+            params.width = ViewGroup.LayoutParams.MATCH_PARENT;
+            params.height = targetHeight;
+            pv.setLayoutParams(params);
+            pv.requestLayout();
+            pv.postDelayed(() -> {
+                if (printWebView != pv || isFinishing()) return;
+                try {
+                    int width = pv.getWidth();
+                    if (width <= 0 && rootLayout != null) width = rootLayout.getWidth();
+                    if (width <= 0) width = 1200;
+                    int wSpec = View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY);
+                    int hSpec = View.MeasureSpec.makeMeasureSpec(targetHeight, View.MeasureSpec.EXACTLY);
+                    pv.measure(wSpec, hSpec);
+                    pv.layout(0, 0, width, targetHeight);
+                    pv.invalidate();
+                    pv.postDelayed(() -> createPdfFromWebView(jobTitle, pv), 900);
+                } catch (Exception ex) {
+                    pv.postDelayed(() -> createPdfFromWebView(jobTitle, pv), 250);
+                }
+            }, 500);
         } catch (Exception ex) {
-            String msg = ex.getMessage() == null ? ex.toString() : ex.getMessage();
-            failPdfV182(out, null, msg);
+            pv.postDelayed(() -> createPdfFromWebView(jobTitle, pv), 250);
         }
     }
 
-    private void createPdfFromWebViewV182(String jobTitle, WebView pv) {
+    private void prepareFullHeightPdfV182(String jobTitle, WebView pv) {
         if (printWebView != pv || isFinishing()) return;
-        final File out = new File(getCacheDir(), "upm-report-" + System.currentTimeMillis() + ".pdf");
-        ParcelFileDescriptor opened = null;
         try {
-            final PrintDocumentAdapter adapter = pv.createPrintDocumentAdapter(jobTitle);
-            final PrintAttributes attrs = new PrintAttributes.Builder()
-                    .setMediaSize(PrintAttributes.MediaSize.ISO_A4.asLandscape())
-                    .setResolution(new PrintAttributes.Resolution("upm_pdf", "UPM PDF", 300, 300))
-                    .setMinMargins(new PrintAttributes.Margins(0, 0, 0, 0))
-                    .setColorMode(PrintAttributes.COLOR_MODE_COLOR)
-                    .build();
-            final CancellationSignal signal = new CancellationSignal();
-            opened = ParcelFileDescriptor.open(out,
-                    ParcelFileDescriptor.MODE_CREATE | ParcelFileDescriptor.MODE_TRUNCATE | ParcelFileDescriptor.MODE_READ_WRITE);
-            final ParcelFileDescriptor pfd = opened;
-            adapter.onLayout(null, attrs, signal, new PrintDocumentAdapter.LayoutResultCallback() {
-                @Override
-                public void onLayoutFinished(android.print.PrintDocumentInfo info, boolean changed) {
-                    try {
-                        adapter.onWrite(new PageRange[]{PageRange.ALL_PAGES}, pfd, signal,
-                                new PrintDocumentAdapter.WriteResultCallback() {
-                                    @Override
-                                    public void onWriteFinished(PageRange[] pages) {
-                                        finishPdfV182(jobTitle, out, pfd);
-                                    }
-                                    @Override
-                                    public void onWriteFailed(CharSequence error) {
-                                        failPdfV182(out, pfd, error == null ? "PDF sayfaları oluşturulamadı." : error.toString());
-                                    }
-                                    @Override
-                                    public void onWriteCancelled() {
-                                        failPdfV182(out, pfd, "PDF oluşturma işlemi iptal edildi.");
-                                    }
-                                });
-                    } catch (Exception ex) {
-                        failPdfV182(out, pfd, ex.getMessage() == null ? ex.toString() : ex.getMessage());
-                    }
+            final String widthJs = "Math.max(document.documentElement ? document.documentElement.scrollWidth : 0, document.body ? document.body.scrollWidth : 0, document.documentElement ? document.documentElement.clientWidth : 0)";
+            final String heightJs = "Math.max(document.documentElement ? document.documentElement.scrollHeight : 0, document.body ? document.body.scrollHeight : 0, document.documentElement ? document.documentElement.offsetHeight : 0, document.body ? document.body.offsetHeight : 0)";
+            pv.evaluateJavascript(widthJs, widthRaw -> pv.evaluateJavascript(heightJs, heightRaw -> {
+                try {
+                    double cssWidth = parseJsNumberV182(widthRaw);
+                    double cssHeight = parseJsNumberV182(heightRaw);
+                    int viewportWidth = pv.getWidth();
+                    if (viewportWidth <= 0 && rootLayout != null) viewportWidth = rootLayout.getWidth();
+                    if (viewportWidth <= 0) viewportWidth = 1200;
+                    double ratio = cssWidth > 1d ? ((double) viewportWidth) / cssWidth : 1d;
+                    int targetHeight = (int) Math.ceil(Math.max(cssHeight, 1d) * ratio) + 48;
+                    targetHeight = Math.max(targetHeight, Math.max(pv.getHeight(), 800));
+                    // Safety guard: enough for a long management report without allowing a corrupt
+                    // document to request an unbounded Android view.
+                    targetHeight = Math.min(targetHeight, 120000);
+                    captureExpandedPdfV182(jobTitle, pv, targetHeight);
+                } catch (Exception ex) {
+                    pv.postDelayed(() -> createPdfFromWebView(jobTitle, pv), 250);
                 }
-                @Override
-                public void onLayoutFailed(CharSequence error) {
-                    failPdfV182(out, pfd, error == null ? "PDF sayfa düzeni hazırlanamadı." : error.toString());
-                }
-                @Override
-                public void onLayoutCancelled() {
-                    failPdfV182(out, pfd, "PDF sayfa düzeni iptal edildi.");
-                }
-            }, new Bundle());
+            }));
         } catch (Exception ex) {
-            String msg = ex.getMessage() == null ? ex.toString() : ex.getMessage();
-            failPdfV182(out, opened, msg);
+            pv.postDelayed(() -> createPdfFromWebView(jobTitle, pv), 250);
         }
     }
 
 '''
 s=s.replace(marker,method+marker,1)
 p.write_text(s,encoding='utf-8')
-print('v1.8.2 Android PDF pagination patch applied')
+print('v1.8.2 full-height WebView PDF patch applied')
