@@ -93,8 +93,9 @@ jobs:
         run: |
           grep -q 'v1.8.2-white-manager-pdf' app/src/main/assets/index.html
           grep -q 'managerPdfCssV182' app/src/main/assets/index.html
-          grep -q 'createPdfFromWebViewV182' app/src/main/java/com/tufanprintops/uretimperformans/MainActivity.java
-          grep -q 'createPrintDocumentAdapter' app/src/main/java/com/tufanprintops/uretimperformans/MainActivity.java
+          grep -q 'prepareFullHeightPdfV182' app/src/main/java/com/tufanprintops/uretimperformans/MainActivity.java
+          grep -q 'captureExpandedPdfV182' app/src/main/java/com/tufanprintops/uretimperformans/MainActivity.java
+          grep -q 'evaluateJavascript' app/src/main/java/com/tufanprintops/uretimperformans/MainActivity.java
           python - <<'PY2'
           from pathlib import Path
           import re
